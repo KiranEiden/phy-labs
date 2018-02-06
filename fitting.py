@@ -1,12 +1,13 @@
 import inspect
 from functools import reduce
+from collections import Sequence
 
 import numpy as np
 from scipy.odr import *
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 
-def _validate(fun, eq_classes=({'x', 'y', 'err_x', 'err_y'}, {'funcs', 'beta', 'p0'})):
+def _validate(fun, eq_classes=({'x', 'y', 'err_x', 'err_y'})):
     """ Decorator that ensures that all arguments in the same equivalence class have the same length. """
 
     def wrapper(*args, **kwargs):
@@ -36,10 +37,8 @@ def _general_fit(x, y, funcs, err_y=None):
     """ Fits the data set (x and y) to a linear combination of the input functions, returning the parameters. """
 
     n = len(x)
-    if n < 2:
-        raise ValueError("Invalid data set - the lists must have lengths greater than 1.")
 
-    # Also error handling, but with the uncertainties in the data set
+    # Handle uncertainties
     if err_y is None:
         err_y = n * [1]
     else:
@@ -63,23 +62,49 @@ def _general_fit(x, y, funcs, err_y=None):
 
 @_validate
 def ls_regression(x, y, funcs, err_y=None, p0=None):
-    """ Returns the results of a scipy curve fit for the input data set and functions. """
+    """
+    Returns the results of a scipy curve fit for the input data set and functions.
 
-    if p0 is None:
-        p0 = _general_fit(x, y, funcs, err_y)
+    :param x: The sequence of x values for the data set.
+    :param y: The sequence of y values for the data set.
+    :param funcs: The single function or sequence of functions to determine parameters for. If a sequence of functions
+        is input, the fit will be to a linear combination, with the coefficients the parameters.
+    :param err_y: The errors in the y values.
+    :param p0: An estimation of the parameters. Must be input if funcs is not a sequence.
+    """
+
+    if isinstance(funcs, Sequence):
+        if p0 is None:
+            p0 = _general_fit(x, y, funcs, err_y)
         funcs = comb_gen(funcs)
-    res = curve_fit(funcs, x, y, p0, sigma=err_y)
+    elif p0 is None:
+        raise ValueError("p0 must be specified if funcs is not a sequence.")
+
+    res = curve_fit(funcs, x, y, p0, err_y)
     return res[0], np.sqrt(np.diag(res[1]))
 
 @_validate
 def od_regression(x, y, funcs, err_x, err_y, beta=None):
-    """ Returns the results of an orthogonal distance regression performed for the input function. """
+    """
+    Returns the results of an orthogonal distance regression performed for the input function.
+
+    :param x: The sequence of x values for the data set.
+    :param y: The sequence of y values for the data set.
+    :param funcs: The single function or sequence of functions to determine parameters for. If a sequence of functions
+        is input, the fit will be to a linear combination, with the coefficients the parameters.
+    :param err_x: The errors in the x values.
+    :param err_y: The errors in the y values.
+    :param beta: An estimation of the parameters. Must be input if funcs is not a sequence.
+    """
 
     # Setup
     data = RealData(x, y, sx=err_x, sy=err_y)
-    if beta is None:
-        beta = np.array(_general_fit(x, y, funcs, err_y), dtype=np.double)
+    if isinstance(funcs, Sequence):
+        if beta is None:
+            beta = _general_fit(x, y, funcs, err_y)
         funcs = comb_gen(funcs)
+    elif beta is None:
+        raise ValueError("p0 must be specified if funcs is not a sequence.")
     model = Model(funcs)
 
     # Regression
@@ -124,28 +149,33 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     half_max = y_max / 2
 
     get_y, get_x = lambda i: y[x_s[i]], lambda i: x[x_s[i]]
-    direction = lambda val, ref: int((ref - val) / abs(ref - val))
+
+    def direction(loc, ref):
+        absolute = (ref - get_y(loc)) / abs(ref - get_y(loc))
+        max_relative = (y_max_i - loc) / abs(y_max_i - loc) if loc != y_max_i else -1
+        return int(absolute * max_relative)
 
     def find_x(loc):
         """ Finds the approximate x-value that yields half-max. Slow, but it works on small datasets. """
-
         try:
-            init_dir = direction(get_y(loc), half_max)
-        except ZeroDivisionError:
-            return get_x(loc)
 
-        direct = init_dir
-        while direct == init_dir:
-            loc += direct
             try:
-                direct = direction(get_y(loc), half_max)
+                init_dir = direction(loc, half_max)
             except ZeroDivisionError:
                 return get_x(loc)
 
-        try:
+            direct = init_dir
+            while direct == init_dir:
+                loc += direct
+                try:
+                    direct = direction(loc, half_max)
+                except ZeroDivisionError:
+                    return get_x(loc)
+
             m = (get_y(loc) - get_y(loc + direct)) / (get_x(loc) - get_x(loc + direct))
             b = get_y(loc) - m * get_x(loc)
             return (half_max - b) / m
+
         except IndexError:
            return get_x(n - 1) if loc >= n else get_x(0)
 
@@ -177,17 +207,17 @@ def gaussian_fit(x, y, err_x=None, err_y=None):
         The parameters are amplitude, variance and mean (mu) respectively.
     """
 
-    mu = sum(x) / len(x)
-    var = sum([x_i**2 for x_i in x]) / len(x) - mu**2
+    mu = np.mean(x)
+    var = np.var(x)
     A = max(y) * np.sqrt(2 * np.pi * var)
 
     p0 = A, var, mu
 
     # Return the correct fit based on the input errors
     if err_x is None:
-        return ls_regression(x, y, lorentzian, err_y, p0)
+        return ls_regression(x, y, gaussian, err_y, p0)
     else:
-        return od_regression(x, y, lorentzian, err_x, err_y, p0)
+        return od_regression(x, y, gaussian, err_x, err_y, p0)
 
 @_validate
 def poly_fit(x, y, err_x=None, err_y=None, n=1):
@@ -233,7 +263,7 @@ def lin_fit_252(x, y, err_y=None):
 
     return (b, a), (sig_b, sig_a)
 
-# Function constructors. Alternatives to lambda expressions.
+# Function constructors. Alternatives to lambda functions.
 
 def power(n):
     """ Returns a power function that raises its argument to the given power. """
@@ -284,6 +314,18 @@ def gaussian(x, *params):
     A, var, mu = params
     return A / np.sqrt(2 * np.pi * var) * np.exp(-(x - mu)**2 / (2 * var))
 
+def poly(x, *params):
+    """
+    A function representing an nth order polynomial, where n is the length of params. To convert to a function that
+    only takes the independent variable, use fixed_params.
+
+    :param x: Independent varfiable.
+    :param params: The coefficients of the terms in the polynomial, arranged in ascending order.
+    :return: The value of the polynomial at x.
+    """
+
+    return sum([p * power(n)(x)for p, n in zip(params, range(0, len(params)))])
+
 # General and particular linear combinations
 
 def comb_gen(funcs):
@@ -291,12 +333,6 @@ def comb_gen(funcs):
     Returns a function that is a linear combination of the input functions, and takes the coefficients as the second
     argument (*params).
     """
-
-    try:
-        if len(funcs) < 1:
-            return None
-    except AttributeError:
-        return funcs
 
     def comb_func(x, *params):
         return sum([par * fun(x) for par, fun in zip(params, funcs)])
@@ -334,51 +370,76 @@ def chi_squared(x, y, err_y, fit):
 
     return sum([((y_i - fit(x_i)) / err_i)**2 for x_i, y_i, err_i in zip(x, y, err_y)])
 
-def write_to_CSV(*data, headers=None, file_name="data"):
+# Input and output
+
+def write_to_CSV(file_name='data', delim=',', columnar=True, **kwargs):
     """
-    Writes the input data to a CSV file - the extension is automatically appended to the given file name. The number
-    of rows is assumed to be equal to the length of the first element of data. Can also use csv module.
+    Writes the values in kwargs to a CSV file, preceded by the keys. The file extension is automatically appended.
+    Use the csv module for a more versatile means of reading and writing csv formatted data. Writes data in columns
+    with the keys as headers by default.
     """
 
-    with open(file_name + ".csv", "w") as file:
-        if headers is not None:
-            for h in range(0, len(headers)):
-                delim = "\n" if h == len(headers) - 1 else ","
-                file.write(''.join((headers[h], delim)))
+    with open(file_name + '.csv', 'w') as file:
 
-        for i in range(0, len(data[0])):
-            for j in range(0, len(data)):
-                delim = "\n" if j == len(data) - 1 else ","
-                file.write(''.join((str(data[j][i]), delim)))
+        def write_row(seq):
+            file.write(delim.join(seq))
+            file.write('\n')
+
+        if columnar:
+            n_rows = max(map(len, kwargs.values()))
+            write_row(kwargs.keys())
+
+            for i in range(0, n_rows):
+                row = map(lambda v: str(v[i]) if len(v) > i else '', kwargs.values())
+                write_row(row)
+
+        else:
+            for key, val in kwargs.items():
+                write_row([key] + list(map(str, val)))
 
     file.close()
 
-def read_from_CSV(file_name):
+def read_from_CSV(file_name, delim=',', columnar=True):
     """
-    Reads CSV data from the file with the given name, returning a dictionary with the columns keyed by their
-    headers. Can also use csv module.
+    Reads CSV data from the file with the given name (extensionless), returning a dictionary with the columns keyed by
+    their headers. Use the csv module for a more versatile means of reading and writing csv formatted data. Assumes
     """
 
     data = dict()
 
+    def convert(x):
+        try:
+            a = float(x)
+        except ValueError:
+            return x
+
+        try:
+            b = int(x)
+        except ValueError:
+            return a
+
+        return b if a == b else a
+
     with open(file_name + ".csv") as file:
-        line = file.readline()
-        headers = line.replace("\n", "").split(",")
-        for i in range(0, len(headers)):
-            headers[i] = headers[i][1:len(headers[i]) - 1]
-            data[headers[i]] = list()
 
-        while True:
-            line = file.readline()
-            if line == "":
-                break
+        if columnar:
+            keys = file.readline().replace('\n', '').split(delim)
+            for key in keys:
+                data[key] = []
 
-            row = line.split(",")
-            for header, cell in zip(headers, row):
-                data[header].append(float(cell))
+            for line in file:
+                line = line.split(delim)
+                for i in range(0, len(line)):
+                    val = line[i].replace('\n', '')
+                    if val:
+                        data[keys[i]].append(convert(val))
+
+        else:
+            for line in file:
+                line = list(map(lambda x: convert(x.replace('\n', '')), line.split(delim)))
+                data[line[0]] = line[1:] if len(line) > 1 else []
 
     return data
-
 
 def get_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, data_style='ko', fit_style='b-',
              step=None, **kwargs):
