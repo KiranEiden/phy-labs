@@ -133,6 +133,10 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     c = sum(weights)
     x_s = sorted(range(0, n), key=lambda i: x[i])
 
+    y_max = max(y)
+    y_max_i = y.index(y_max)
+    half_max = y_max / 2
+
     # Location parameter estimate
     x_0 = 0
     for i in range(0, n):
@@ -144,10 +148,6 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     q_1 = int(q_1 + 1)
     q_3 = int(q_3)
 
-    y_max = max(y)
-    y_max_i = y.index(y_max)
-    half_max = y_max / 2
-
     get_y, get_x = lambda i: y[x_s[i]], lambda i: x[x_s[i]]
 
     def direction(loc, ref):
@@ -157,8 +157,8 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
 
     def find_x(loc):
         """ Finds the approximate x-value that yields half-max. Slow, but it works on small datasets. """
-        try:
 
+        try:
             try:
                 init_dir = direction(loc, half_max)
             except ZeroDivisionError:
@@ -467,10 +467,8 @@ def get_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, da
     :return: The constructed plot object.
     """
 
-    fig, ax = plt.subplots()
-
     # Error bar plot of the data
-    ax.errorbar(x, y, err_y, err_x, data_style, label="Data", **kwargs)
+    plt.errorbar(x, y, err_y, err_x, data_style, label='Data', **kwargs)
 
     # Plots the fit
     if fit is not None:
@@ -480,19 +478,19 @@ def get_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, da
 
         num_steps = round((max_x - min_x) / step)
         f_x = [min_x + i * step for i in range(0, num_steps)]
-        ax.plot(f_x, list(map(fit, f_x)), fit_style, label="Fit", **kwargs)
+        plt.plot(f_x, list(map(fit, f_x)), fit_style, label='Fit', **kwargs)
 
     # Sets the title
     if title is not None:
-        ax.set_title(title)
+        plt.title(title)
 
     # Axis labels
     if labels is not None:
         xlabel, ylabel = labels
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
 
     # Show the legend
-    ax.legend()
+    plt.legend()
 
     return plt

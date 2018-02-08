@@ -34,25 +34,24 @@ class TestFitting(unittest.TestCase):
         x = [5.5, 8.0, 14.0, 17.0, 35.1, 86.0]
         y = list(map(lambda x: 4 + 3 * x, x))
         res = poly_fit(x, y)
-        print(res)
         self.fit_assertion(x, y, poly, res)
 
         x = [1.0, 2.4, 3.0, 4.1, 5.6, 6.7]
         y = list(map(lambda x: 4 - 3 * x + 2 * x**2 - x**3, x))
         res = poly_fit(x, y, n=3)
-        print(res)
         self.fit_assertion(x, y, poly, res)
 
     def test_CSV(self):
 
         x = [9.4, 4.8e4, 9.3, 7.7]
         y = [44, 99, 66, 33]
+        z = ['I\'m', 'a', 'Seawolf']
+
         write_to_CSV(x=x, y=y)
         data = read_from_CSV('data')
         self.assertEqual(data['x'], x)
         self.assertEqual(data['y'], y)
 
-        z = ['pico', 'de', 'gallo']
         write_to_CSV(delim=';', columnar=False, x_data=x, y_data=y, z_data=z)
         data = read_from_CSV('data', delim=';', columnar=False)
         self.assertEqual(data['x_data'], x)
