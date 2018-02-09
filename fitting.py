@@ -84,7 +84,7 @@ def ls_regression(x, y, funcs, err_y=None, p0=None):
     return res[0], np.sqrt(np.diag(res[1]))
 
 @_validate
-def od_regression(x, y, funcs, err_x, err_y, beta=None):
+def od_regression(x, y, funcs, err_x, err_y, p0=None):
     """
     Returns the results of an orthogonal distance regression performed for the input function.
 
@@ -94,21 +94,21 @@ def od_regression(x, y, funcs, err_x, err_y, beta=None):
         is input, the fit will be to a linear combination, with the coefficients the parameters.
     :param err_x: The errors in the x values.
     :param err_y: The errors in the y values.
-    :param beta: An estimation of the parameters. Must be input if funcs is not a sequence.
+    :param p0: An estimation of the parameters. Must be input if funcs is not a sequence.
     """
 
     # Setup
     data = RealData(x, y, sx=err_x, sy=err_y)
     if isinstance(funcs, Sequence):
-        if beta is None:
-            beta = _general_fit(x, y, funcs, err_y)
-        funcs = comb_gen(funcs)
-    elif beta is None:
+        if p0 is None:
+            p0 = _general_fit(x, y, funcs, err_y)
+        funcs = swap_args(comb_gen(funcs))
+    elif p0 is None:
         raise ValueError("p0 must be specified if funcs is not a sequence.")
     model = Model(funcs)
 
     # Regression
-    odr = ODR(data, model, beta0=beta)
+    odr = ODR(data, model, beta0=p0)
     output = odr.run()
     return output.beta, output.sd_beta
 
@@ -149,35 +149,21 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     q_3 = int(q_3)
 
     get_y, get_x = lambda i: y[x_s[i]], lambda i: x[x_s[i]]
-
-    def direction(loc, ref):
-        absolute = (ref - get_y(loc)) / abs(ref - get_y(loc))
-        max_relative = (y_max_i - loc) / abs(y_max_i - loc) if loc != y_max_i else -1
-        return int(absolute * max_relative)
+    # == in this instance is effectively XNOR
+    direction = lambda loc: 1 if (get_y(loc) < half_max) == (loc < y_max_i) else -1
 
     def find_x(loc):
         """ Finds the approximate x-value that yields half-max. Slow, but it works on small datasets. """
 
-        try:
-            try:
-                init_dir = direction(loc, half_max)
-            except ZeroDivisionError:
-                return get_x(loc)
+        direct = init = get_y(loc) < half_max
 
-            direct = init_dir
-            while direct == init_dir:
-                loc += direct
-                try:
-                    direct = direction(loc, half_max)
-                except ZeroDivisionError:
-                    return get_x(loc)
+        while (get_y(loc) < half_max) == init and 0 < loc < n - 1:
+            direct = direction(loc)
+            loc += direct
 
-            m = (get_y(loc) - get_y(loc + direct)) / (get_x(loc) - get_x(loc + direct))
-            b = get_y(loc) - m * get_x(loc)
-            return (half_max - b) / m
-
-        except IndexError:
-           return get_x(n - 1) if loc >= n else get_x(0)
+        m = (get_y(loc) - get_y(loc - direct)) / (get_x(loc) - get_x(loc - direct))
+        b = get_y(loc) - m * get_x(loc)
+        return (half_max - b) / m
 
     x_1 = find_x(q_1)
     x_3 = find_x(q_3)
@@ -192,7 +178,7 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     if err_x is None:
         return ls_regression(x, y, lorentzian, err_y, p0)
     else:
-        return od_regression(x, y, lorentzian, err_x, err_y, p0)
+        return od_regression(x, y, swap_args(lorentzian), err_x, err_y, p0)
 
 @_validate
 def gaussian_fit(x, y, err_x=None, err_y=None):
@@ -217,7 +203,7 @@ def gaussian_fit(x, y, err_x=None, err_y=None):
     if err_x is None:
         return ls_regression(x, y, gaussian, err_y, p0)
     else:
-        return od_regression(x, y, gaussian, err_x, err_y, p0)
+        return od_regression(x, y, swap_args(gaussian), err_x, err_y, p0)
 
 @_validate
 def poly_fit(x, y, err_x=None, err_y=None, n=1):
@@ -355,13 +341,27 @@ def fixed_params(fun, *params):
 
     :param fun: The general function or distribution to set the parameters for.
     :param params: The parameters themselves, in the order specified inside the function.
-    :return: The newly constructed function, now in particular form.
+    :return: The newly defined function, now in particular form.
     """
 
     def new_fun(x):
         return fun(x, *params)
 
     return new_fun
+
+def swap_args(fun):
+    """
+    Decorator to swap the order of the parameters and the x values in a function's argument sequence. Necessary due to
+    the inconsistency in the desired function arguments between curve_fit and ODR.
+
+    :param fun: The function to swap arguments for.
+    :return: A newly defined function that takes the inputs in the opposite order.
+    """
+
+    def wrapper(params, x):
+        return fun(x, *params)
+
+    return wrapper
 
 # Analysis tools
 
