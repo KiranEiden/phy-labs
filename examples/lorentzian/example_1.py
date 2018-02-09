@@ -11,11 +11,20 @@ from fitting import *
 # Reads the data from a CSV file
 data = read_from_CSV('data')
 x, y, err_y = data['x'], data['y'], data['err_y']
-# The data set may be programmatically declared as x = [x_1, x_2, ..., x_n], or using a list comprehension.
+
+"""
+Alternative ways to declare lists:
+x = [4, 14, 27.1e12, 19.2, 4.4, 3, np.sqrt(8)] # List of integers and floats
+x = list(range(0, 100)) # Numbers from 0 to 99
+y = [(18 + i) / 10 for i in range(0, 61)] # Numbers from 18.0 to 24.0
+err_y = len(y) * [0.05] # A list of the same length as y, but containing only 0.05
+"""
+
 p, err_p = lorentzian_fit(x, y, err_y=err_y)
 
 # Print the parameters
 print("Amplitude: {} +- {}".format(p[0], err_p[0]))
+print("Peak Value: {}".format(p[0] / (np.pi * p[1])))
 print("Gamma: {} +- {}".format(p[1], err_p[1]))
 print("Location: {} +- {}".format(p[2], err_p[2]))
 

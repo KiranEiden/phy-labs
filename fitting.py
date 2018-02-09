@@ -122,7 +122,8 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     :param err_x: The errors in the x values.
     :param err_y: The errors in the y values.
     :return: A two dimensional array, containing first the values of the parameters and then the corresponding errors.
-        The parameters are amplitude, width (gamma) and location (x_0) respectively.
+        The parameters are amplitude, width (gamma) and location (x_0) respectively. Note that amplitude is not the
+        peak value of the distribution, which is amplitude / (pi * gamma).
     """
 
     # Initializes components needed for estimation
@@ -249,28 +250,20 @@ def lin_fit_252(x, y, err_y=None):
 
     return (b, a), (sig_b, sig_a)
 
-# Function constructors. Alternatives to lambda functions.
+# Function constructors. Marginally more concise alternatives to lambda functions.
 
 def power(n):
     """ Returns a power function that raises its argument to the given power. """
 
-    def power_func(x):
-        return x**n
-    return power_func
+    return lambda x: x**n
 
-def exp(n):
-    """ Returns an exponential function with n as the coefficient in the exponent. """
+def coeff(func, n):
+    """
+    Returns a single-variable function that evaluates to func(nx), where x is the I.V. May be used for quickly
+    contructing linearly independent combinations of functions.
+    """
 
-    def exp_func(x):
-        return np.exp(n * x)
-    return exp_func
-
-def log(base):
-    """ Returns a log function with the given base. """
-
-    def log_func(x):
-        return np.log(x) / np.log(base)
-    return log_func
+    return lambda x: func(n * x)
 
 # Distributions in general form
 
@@ -334,32 +327,32 @@ def comb(funcs, params):
         return sum([par * fun(x) for par, fun in zip(params, funcs)])
     return comb_func
 
-def fixed_params(fun, *params):
+def fixed_params(func, *params):
     """
     Returns a function defined as the input function with the given parameters. The function arguments must always be
     of the form (x, *params).
 
-    :param fun: The general function or distribution to set the parameters for.
+    :param func: The general function or distribution to set the parameters for.
     :param params: The parameters themselves, in the order specified inside the function.
     :return: The newly defined function, now in particular form.
     """
 
-    def new_fun(x):
-        return fun(x, *params)
+    def new_func(x):
+        return func(x, *params)
 
-    return new_fun
+    return new_func
 
-def swap_args(fun):
+def swap_args(func):
     """
     Decorator to swap the order of the parameters and the x values in a function's argument sequence. Necessary due to
     the inconsistency in the desired function arguments between curve_fit and ODR.
 
-    :param fun: The function to swap arguments for.
+    :param func: The function to swap arguments for.
     :return: A newly defined function that takes the inputs in the opposite order.
     """
 
     def wrapper(params, x):
-        return fun(x, *params)
+        return func(x, *params)
 
     return wrapper
 
