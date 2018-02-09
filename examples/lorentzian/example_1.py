@@ -5,8 +5,8 @@ https://www.datacamp.com/community/tutorials/tutorial-jupyter-notebook for more 
 
 # Specifies path to fitting, if this is to be run from the command line.
 import sys
-sys.path.append('../../../')
-from modules.fitting import *
+sys.path.append('../../')
+from fitting import *
 
 # Reads the data from a CSV file
 data = read_from_CSV('data')
