@@ -3,7 +3,7 @@ Example fit to a Lorentzian data set. This may all be done interactively using a
 https://www.datacamp.com/community/tutorials/tutorial-jupyter-notebook for more information.
 """
 
-# Specifies path to fitting, if this is to be run from the command line.
+# Specifies path to fitting, if this is to be run from the terminal or command line.
 import sys
 sys.path.append('../../')
 from fitting import *
