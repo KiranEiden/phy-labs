@@ -418,7 +418,6 @@ def read_from_CSV(file_name, delim=',', columnar=True):
             a = float(x)
         except ValueError:
             return x
-
         try:
             b = int(x)
         except ValueError:
@@ -435,16 +434,17 @@ def read_from_CSV(file_name, delim=',', columnar=True):
 
             for line in file:
                 line = line.split(delim)
-                for i in range(0, len(line)):
-                    val = line[i].replace('\n', '')
+                for key, val in zip(keys, line):
+                    val = val.replace('\n', '')
                     if val:
-                        data[keys[i]].append(convert(val))
+                        data[key].append(convert(val))
 
         else:
             for line in file:
                 line = list(map(lambda x: convert(x.replace('\n', '')), line.split(delim)))
                 data[line[0]] = line[1:] if len(line) > 1 else []
 
+    file.close()
     return data
 
 def get_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, data_style='ko', fit_style='b-',
