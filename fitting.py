@@ -274,7 +274,7 @@ def lorentzian(x, *params):
 
     :param x: Independent variable.
     :param params: The parameters of the distribution, in the order amplitude, width (gamma), and location (x_0).
-    :return: The value of the distributiion at x.
+    :return: The value of the distribution at x.
     """
 
     A, gamma, x_0 = params
@@ -287,7 +287,7 @@ def gaussian(x, *params):
 
     :param x: Independent variable.
     :param params: The parameters of the distribution, in the order amplitude, variance (sigma), and mean (mu).
-    :return: The value of the distributiion at x.
+    :return: The value of the distribution at x.
     """
 
     A, var, mu = params
@@ -362,6 +362,19 @@ def chi_squared(x, y, err_y, fit):
     """ Returns the chi-squared value for the input fit and data set. """
 
     return sum([((y_i - fit(x_i)) / err_i)**2 for x_i, y_i, err_i in zip(x, y, err_y)])
+
+def r_squared(x, y, fit):
+    """ Returns the unadjusted coefficient of determination for the input fit and data set. """
+
+    y_bar = np.mean(y)
+
+    # Total sum of squares
+    total = sum([(y_i - y_bar)**2 for y_i in y])
+
+    # Residual sum of squares
+    res = sum([(y_i - fit(x_i))**2 for x_i, y_i in zip(x, y)])
+
+    return 1 - res / total
 
 # Input and output
 
