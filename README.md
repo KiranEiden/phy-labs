@@ -9,9 +9,9 @@ Check the 'examples' directory for sample files using the functions in the modul
 For those new to Python: the latest release may be found at https://www.python.org/downloads/release/python-364/.
 Python comes preinstalled on OS X and most Linux distributions.
 
-Some additional packages are required for this module, such as scipy, numpy and matplotlib. They may be installed using
-Any recent Python release will include the package manager pip, which may be used to install these by typing 'pip 
-install' followed by the package name in a terminal window. 
+Some additional packages are required for this module, such as scipy, numpy and matplotlib. Any recent Python release 
+will include the package manager pip, which may be used to install these by typing 'pip install' followed by the package
+name in a terminal window. 
 
 **Note**: If both Python 2 and Python 3 are installed, 
 Python 3 may need to be referenced using 'python3' and 'pip3' instead of 'python' and 'pip'. **Also Note**: Attempting
