@@ -123,7 +123,8 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     :param err_y: The errors in the y values.
     :return: A two dimensional array, containing first the values of the parameters and then the corresponding errors.
         The parameters are amplitude, width (gamma) and location (x_0) respectively. Note that amplitude is not the
-        peak value of the distribution, which is amplitude / (pi * gamma).
+        peak value of the distribution, which is amplitude / (pi * gamma). Note that the output width parameter is
+        the half width at half maximum, not the full width at half maximum.
     """
 
     # Initializes components needed for estimation
@@ -446,7 +447,7 @@ def read_from_CSV(file_name, delim=',', columnar=True):
     return data
 
 def draw_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, data_style='ko', fit_style='b-',
-             step=None, **kwargs):
+             step=None, figure=None, subplot=None, top_adj=0.875, **kwargs):
     """
     Returns a plot object with the input settings. The 'style' parameters follow the abbreviations listed here:
     https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.plot.html, as well as supporting CN notation for color (try
@@ -468,8 +469,31 @@ def draw_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, d
     :param fit_style: Style for the fit curve. Blue line by default.
     :param step: The step size for the points on the curve. Can be ignored for linear fits, but impacts the apparent
         smoothness of the curve for other functions.
+    :param figure: The index of the figure to on which to draw the plot, starting at 0. By default the plot will be
+        drawn on the last figure used. Multiple plots may be drawn in across multiple figures by modulating the index.
+        The individual figures may be retrieved by index by calling plt.figure(figure).
+    :param subplot: A 3-digit natural number or 3-item sequence that indicates the subplot of the figure to draw on.
+        The first digit or item is the number of rows in the subplot grid, the second the number of columns, and the
+        third the index of the location in the grid (starting at 1). Call plt.figure(figure).suptitle(<title>) or
+        plt.gcf().suptitle(<title>) to set a title for the entire figure when displaying multiple subplots.
+    :param top_adj: Due to a bug in matplotlib, a title added to the figure with suptitle will overlap with the subplot
+        titles without manual adjustment. The default setting should work with a one line title and the standard font,
+        but this will need to be set explicitly for longer/taller titles (by reducing the value, appears to be a drop
+        of about 0.05 per line in the standard font?).
     :return: The figure on which the plots were drawn.
     """
+
+    # Figure and subplot adjustments
+    if figure is not None:
+        plt.figure(figure)
+
+    if subplot is not None:
+        if isinstance(subplot, Sequence):
+            plt.subplot(*subplot)
+        else:
+            plt.subplot(subplot)
+        plt.tight_layout()
+        plt.subplots_adjust(top=top_adj)
 
     # Error bar plot of the data
     plt.errorbar(x, y, err_y, err_x, data_style, label='Data', **kwargs)
