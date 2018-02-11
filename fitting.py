@@ -134,8 +134,8 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     c = sum(weights)
     x_s = sorted(range(0, n), key=lambda i: x[i])
 
-    y_max = max(y)
-    y_max_i = y.index(y_max)
+    max_i = max(x_s, key=lambda i: y[x_s[i]])
+    y_max = y[x_s[max_i]]
     half_max = y_max / 2
 
     # Location parameter estimate
@@ -151,7 +151,7 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
 
     get_y, get_x = lambda i: y[x_s[i]], lambda i: x[x_s[i]]
     # == in this instance is effectively XNOR
-    direction = lambda loc: 1 if (get_y(loc) < half_max) == (loc < y_max_i) else -1
+    direction = lambda loc: 1 if (get_y(loc) < half_max) == (loc < max_i) else -1
 
     def find_x(loc):
         """ Finds the approximate x-value that yields half-max. Slow, but it works on small datasets. """
@@ -171,7 +171,7 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     gamma = (x_3 - x_1) / 2
 
     # Amplitude estimate
-    A = y_max * np.pi * ((x[y_max_i] - x_0)**2 + gamma**2) / gamma
+    A = y_max * np.pi * ((x[x_s[max_i]] - x_0)**2 + gamma**2) / gamma
 
     p0 = A, gamma, x_0
 
@@ -398,7 +398,6 @@ def write_to_CSV(file_name='data', delim=',', columnar=True, **kwargs):
             for i in range(0, n_rows):
                 row = map(lambda v: str(v[i]) if len(v) > i else '', kwargs.values())
                 write_row(row)
-
         else:
             for key, val in kwargs.items():
                 write_row([key] + list(map(str, val)))
@@ -438,7 +437,6 @@ def read_from_CSV(file_name, delim=',', columnar=True):
                     val = val.replace('\n', '')
                     if val:
                         data[key].append(convert(val))
-
         else:
             for line in file:
                 line = list(map(lambda x: convert(x.replace('\n', '')), line.split(delim)))
