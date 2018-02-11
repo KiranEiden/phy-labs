@@ -31,10 +31,10 @@ print("Location: {} +- {}".format(p[2], err_p[2]))
 # Convert the result to a fit function and plot the data
 fit = fixed_params(lorentzian, *p)
 labels = "x (unit)", "y (unit)"
-plot = get_plot(x, y, err_y=err_y, fit=fit, title=r"$\Pi$co de Gallo", labels=labels, color='hotpink')
+draw_plot(x, y, err_y=err_y, fit=fit, title=r"$\Pi$co de Gallo", labels=labels, color='orangered')
 
 # Save the plot programmatically.
-# fig.savefig('plot.png', dpi=fig.dpi)
+# plt.gcf().savefig('plot.png', dpi=plt.gcf().dpi)
 
 # Display the plot, with an interactive toolbar (for panning, saving, etc.) at the bottom.
-plot.show()
+plt.show()

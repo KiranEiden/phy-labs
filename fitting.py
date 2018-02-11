@@ -445,7 +445,7 @@ def read_from_CSV(file_name, delim=',', columnar=True):
     file.close()
     return data
 
-def get_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, data_style='ko', fit_style='b-',
+def draw_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, data_style='ko', fit_style='b-',
              step=None, **kwargs):
     """
     Returns a plot object with the input settings. The 'style' parameters follow the abbreviations listed here:
@@ -468,7 +468,7 @@ def get_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, da
     :param fit_style: Style for the fit curve. Blue line by default.
     :param step: The step size for the points on the curve. Can be ignored for linear fits, but impacts the apparent
         smoothness of the curve for other functions.
-    :return: The constructed plot object.
+    :return: The figure on which the plots were drawn.
     """
 
     # Error bar plot of the data
@@ -497,4 +497,4 @@ def get_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, da
     # Show the legend
     plt.legend()
 
-    return plt
+    return plt.gcf()
