@@ -123,7 +123,7 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     :param err_y: The errors in the y values.
     :return: A two dimensional array, containing first the values of the parameters and then the corresponding errors.
         The parameters are amplitude, width (gamma) and location (x_0) respectively. Note that amplitude is not the
-        peak value of the distribution, which is amplitude / (pi * gamma). Note that the output width parameter is
+        peak value of the distribution, which is amplitude / (pi * gamma). Also note that the output width parameter is
         the half width at half maximum, not the full width at half maximum.
     """
 
@@ -254,7 +254,7 @@ def lin_fit_252(x, y, err_y=None):
 # Function constructors. Marginally more concise alternatives to lambda functions.
 
 def power(n):
-    """ Returns a power function that raises its argument to the given power. """
+    """ Returns a function that raises its argument to the nth power. """
 
     return lambda x: x**n
 
@@ -299,7 +299,7 @@ def poly(x, *params):
     A function representing an nth order polynomial, where n is the length of params. To convert to a function that
     only takes the independent variable, use fixed_params.
 
-    :param x: Independent varfiable.
+    :param x: Independent variable.
     :param params: The coefficients of the terms in the polynomial, arranged in ascending order.
     :return: The value of the polynomial at x.
     """
