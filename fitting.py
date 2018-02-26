@@ -446,8 +446,8 @@ def read_from_CSV(file_name, delim=',', columnar=True):
     file.close()
     return data
 
-def draw_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, data_style='ko', fit_style='b-',
-             step=None, figure=None, subplot=None, top_adj=0.875, **kwargs):
+def draw_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, legend=('Data', 'Fit'), data_style='ko',
+              fit_style='b-', step=None, figure=None, subplot=None, top_adj=0.875, **kwargs):
     """
     Returns a plot object with the input settings. The 'style' parameters follow the abbreviations listed here:
     https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.plot.html, as well as supporting CN notation for color (try
@@ -465,6 +465,7 @@ def draw_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, d
     :param labels: The axes labels, passed in as a sequence.
     .. note:: Matplotlib supports Latex syntax for titles and axes labels - see
             https://matplotlib.org/2.0.2/users/usetex.html
+    :param legend: A pair of labels for the data and fit, respectively.
     :param data_style: Style for the data points. Black dots by default.
     :param fit_style: Style for the fit curve. Blue line by default.
     :param step: The step size for the points on the curve. Can be ignored for linear fits, but impacts the apparent
@@ -496,7 +497,7 @@ def draw_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, d
         plt.subplots_adjust(top=top_adj)
 
     # Error bar plot of the data
-    plt.errorbar(x, y, err_y, err_x, data_style, label='Data', **kwargs)
+    plt.errorbar(x, y, err_y, err_x, data_style, label=legend[0], **kwargs)
 
     # Plots the fit
     if fit is not None:
@@ -506,7 +507,7 @@ def draw_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, d
 
         num_steps = round((max_x - min_x) / step)
         f_x = [min_x + i * step for i in range(0, num_steps)]
-        plt.plot(f_x, list(map(fit, f_x)), fit_style, label='Fit', **kwargs)
+        plt.plot(f_x, list(map(fit, f_x)), fit_style, label=legend[1], **kwargs)
 
     # Sets the title
     if title is not None:

@@ -1,5 +1,5 @@
 import unittest
-from modules.fitting import *
+from fitting import *
 
 THRESHOLD = 1e-10
 
