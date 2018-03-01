@@ -68,7 +68,8 @@ def ls_regression(x, y, funcs, err_y=None, p0=None):
     :param x: The sequence of x values for the data set.
     :param y: The sequence of y values for the data set.
     :param funcs: The single function or sequence of functions to determine parameters for. If a sequence of functions
-        is input, the fit will be to a linear combination, with the coefficients the parameters.
+        is input, the fit will be to a linear combination, with the coefficients the parameters. Otherwise, the function
+        is assumed to be of the form f(x, *params).
     :param err_y: The errors in the y values.
     :param p0: An estimation of the parameters. Must be input if funcs is not a sequence.
     """
@@ -76,7 +77,7 @@ def ls_regression(x, y, funcs, err_y=None, p0=None):
     if isinstance(funcs, Sequence):
         if p0 is None:
             p0 = _general_fit(x, y, funcs, err_y)
-        funcs = comb_gen(funcs)
+        funcs = comb_gen(*funcs)
     elif p0 is None:
         raise ValueError("p0 must be specified if funcs is not a sequence.")
 
@@ -102,7 +103,7 @@ def od_regression(x, y, funcs, err_x, err_y, p0=None):
     if isinstance(funcs, Sequence):
         if p0 is None:
             p0 = _general_fit(x, y, funcs, err_y)
-        funcs = swap_args(comb_gen(funcs))
+        funcs = swap_args(comb_gen(*funcs))
     elif p0 is None:
         raise ValueError("p0 must be specified if funcs is not a sequence.")
     model = Model(funcs)
@@ -308,7 +309,7 @@ def poly(x, *params):
 
 # General and particular linear combinations
 
-def comb_gen(funcs):
+def comb_gen(*funcs):
     """
     Returns a function that is a linear combination of the input functions, and takes the coefficients as the second
     argument (*params).
@@ -446,8 +447,8 @@ def read_from_CSV(file_name, delim=',', columnar=True):
     file.close()
     return data
 
-def draw_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, data_style='ko', fit_style='b-',
-             step=None, figure=None, subplot=None, top_adj=0.875, **kwargs):
+def draw_plot(x=None, y=None, err_x=None, err_y=None, fit=None, title=None, labels=None, data_style='ko',
+              fit_style='b-', step=None, figure=None, subplot=None, top_adj=0.875, **kwargs):
     """
     Returns a plot object with the input settings. The 'style' parameters follow the abbreviations listed here:
     https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.plot.html, as well as supporting CN notation for color (try
@@ -496,7 +497,8 @@ def draw_plot(x, y, err_x=None, err_y=None, fit=None, title=None, labels=None, d
         plt.subplots_adjust(top=top_adj)
 
     # Error bar plot of the data
-    plt.errorbar(x, y, err_y, err_x, data_style, label='Data', **kwargs)
+    if x is not None and y is not None:
+        plt.errorbar(x, y, err_y, err_x, data_style, label='Data', **kwargs)
 
     # Plots the fit
     if fit is not None:

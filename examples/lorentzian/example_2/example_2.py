@@ -1,6 +1,8 @@
 # Example with small, manually input data sets. Demonstrates multiple plots on a single figure.
 
-# Specifies path to fitting, if this is to be run from the terminal or command line.
+# Specifies path to fitting, if this is to be run from the terminal.
+# You may also export the location of the module to the $PYTHONPATH variable in a shell
+# source file or directly from the terminal.
 import sys
 sys.path.append('../../../')
 from fitting import *
