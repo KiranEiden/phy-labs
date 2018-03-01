@@ -180,8 +180,7 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     # Return the correct fit based on the input errors
     if err_x is None:
         return ls_regression(x, y, lorentzian, err_y, p0)
-    else:
-        return od_regression(x, y, swap_args(lorentzian), err_x, err_y, p0)
+    return od_regression(x, y, swap_args(lorentzian), err_x, err_y, p0)
 
 @_validate
 def gaussian_fit(x, y, err_x=None, err_y=None):
@@ -205,11 +204,10 @@ def gaussian_fit(x, y, err_x=None, err_y=None):
     # Return the correct fit based on the input errors
     if err_x is None:
         return ls_regression(x, y, gaussian, err_y, p0)
-    else:
-        return od_regression(x, y, swap_args(gaussian), err_x, err_y, p0)
+    return od_regression(x, y, swap_args(gaussian), err_x, err_y, p0)
 
 @_validate
-def poly_fit(x, y, err_x=None, err_y=None, n=1):
+def poly_fit(x, y, err_x=None, err_y=None, n=1, filter_threshold=None):
     """
     Fits an nth order polynomial to the input data.
 
@@ -219,12 +217,13 @@ def poly_fit(x, y, err_x=None, err_y=None, n=1):
     :param err_y: The errors in the y values.
     :param n: The order of the polynomial.
     :return: A two dimensional array, containing first the values of the parameters and then the corresponding errors.
-        The parameters are the coefficients of the terms in the polynomial, in ascending order from 1 to x^n.
+        The parameters are the coefficients of the terms in the polynomial, in descending order from 1 to x^n.
     """
 
     funcs = [power(i) for i in range(0, n + 1)]
     if err_x is None:
-        return ls_regression(x, y, funcs, err_y)
+        res = np.polyfit(x, y, n, w=[1 / e for e in err_y], cov=True)
+        return res[0][::-1], np.sqrt(np.diag(res[1]))[::-1]
     else:
         return od_regression(x, y, funcs, err_x, err_y)
 
@@ -447,7 +446,7 @@ def read_from_CSV(file_name, delim=',', columnar=True):
     file.close()
     return data
 
-def draw_plot(x=None, y=None, err_x=None, err_y=None, fit=None, title=None, labels=None, legend=('Data', 'Fit'),
+def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=None, dlegend='Data', flegend='Fit',
               data_style='ko', fit_style='b-', step=None, figure=None, subplot=None, top_adj=0.875, **kwargs):
     """
     Returns a plot object with the input settings. The 'style' parameters follow the abbreviations listed here:
@@ -466,7 +465,8 @@ def draw_plot(x=None, y=None, err_x=None, err_y=None, fit=None, title=None, labe
     :param labels: The axes labels, passed in as a sequence.
     .. note:: Matplotlib supports Latex syntax for titles and axes labels - see
             https://matplotlib.org/2.0.2/users/usetex.html
-    :param legend: A pair of labels for the data and fit, respectively.
+    :param dlegend: Legend label for the data.
+    :param flegend: Legend label for the fit.
     :param data_style: Style for the data points. Black dots by default.
     :param fit_style: Style for the fit curve. Blue line by default.
     :param step: The step size for the points on the curve. Can be ignored for linear fits, but impacts the apparent
@@ -498,8 +498,8 @@ def draw_plot(x=None, y=None, err_x=None, err_y=None, fit=None, title=None, labe
         plt.subplots_adjust(top=top_adj)
 
     # Error bar plot of the data
-    if x is not None and y is not None:
-        plt.errorbar(x, y, err_y, err_x, data_style, label=legend[0], **kwargs)
+    if y is not None:
+        plt.errorbar(x, y, err_y, err_x, data_style, label=dlegend, **kwargs)
 
     # Plots the fit
     if fit is not None:
@@ -509,7 +509,7 @@ def draw_plot(x=None, y=None, err_x=None, err_y=None, fit=None, title=None, labe
 
         num_steps = round((max_x - min_x) / step)
         f_x = [min_x + i * step for i in range(0, num_steps)]
-        plt.plot(f_x, list(map(fit, f_x)), fit_style, label=legend[1], **kwargs)
+        plt.plot(f_x, list(map(fit, f_x)), fit_style, label=flegend, **kwargs)
 
     # Sets the title
     if title is not None:
