@@ -222,7 +222,9 @@ def poly_fit(x, y, err_x=None, err_y=None, n=1, filter_threshold=None):
 
     funcs = [power(i) for i in range(0, n + 1)]
     if err_x is None:
-        res = np.polyfit(x, y, n, w=[1 / e for e in err_y], cov=True)
+        if err_y is not None:
+            err_y = [1 / e for e in err_y]
+        res = np.polyfit(x, y, n, w=err_y, cov=True)
         return res[0][::-1], np.sqrt(np.diag(res[1]))[::-1]
     else:
         return od_regression(x, y, funcs, err_x, err_y)
