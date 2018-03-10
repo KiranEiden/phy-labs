@@ -180,6 +180,7 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     # Return the correct fit based on the input errors
     if err_x is None:
         return ls_regression(x, y, lorentzian, err_y, p0)
+
     return od_regression(x, y, swap_args(lorentzian), err_x, err_y, p0)
 
 @_validate
@@ -204,10 +205,11 @@ def gaussian_fit(x, y, err_x=None, err_y=None):
     # Return the correct fit based on the input errors
     if err_x is None:
         return ls_regression(x, y, gaussian, err_y, p0)
+
     return od_regression(x, y, swap_args(gaussian), err_x, err_y, p0)
 
 @_validate
-def poly_fit(x, y, err_x=None, err_y=None, n=1, filter_threshold=None):
+def poly_fit(x, y, err_x=None, err_y=None, n=1):
     """
     Fits an nth order polynomial to the input data.
 
@@ -226,8 +228,8 @@ def poly_fit(x, y, err_x=None, err_y=None, n=1, filter_threshold=None):
             err_y = [1 / e for e in err_y]
         res = np.polyfit(x, y, n, w=err_y, cov=True)
         return res[0][::-1], np.sqrt(np.diag(res[1]))[::-1]
-    else:
-        return od_regression(x, y, funcs, err_x, err_y)
+
+    return od_regression(x, y, funcs, err_x, err_y)
 
 @_validate
 def lin_fit_252(x, y, err_y=None):
@@ -381,41 +383,57 @@ def r_squared(x, y, fit):
 
 # Input and output
 
-def write_to_CSV(file_name='data', delim=',', columnar=True, **kwargs):
+def write_to_CSV(file_name='data.csv', delim=',', columnar=True, fmt='{}', line_end='', **kwargs):
     """
-    Writes the values in kwargs to a CSV file, preceded by the keys. The file extension is automatically appended.
-    Use the csv module for a more versatile means of reading and writing csv formatted data. Writes data in columns
-    with the keys as headers by default.
+    Writes the values in kwargs to a CSV file, preceded by the keys. Use the csv module for a more versatile means of
+    reading and writing csv formatted data.
+
+    :param file_name: The name of the file to write to, with extension.
+    :param delim: The delimeter to use, set to a comma by default.
+    :param columnar: Whether to output the data in columns (True) or in rows (False).
+    :param fmt: A format to apply to data before writing.
+    :param line_end: A string to write to the end of the line before the newline character.
     """
 
-    with open(file_name + '.csv', 'w') as file:
+    # Function for applying formatting
+    convert = lambda key, out: fmt[key].format(out) if isinstance(fmt, dict) else fmt.format(out)
+
+    with open(file_name, 'w') as file:
 
         def write_row(seq):
             file.write(delim.join(seq))
-            file.write('\n')
+            file.write(line_end + '\n')
 
         if columnar:
             n_rows = max(map(len, kwargs.values()))
             write_row(kwargs.keys())
 
             for i in range(0, n_rows):
-                row = map(lambda v: str(v[i]) if len(v) > i else '', kwargs.values())
+                row = map(lambda item: convert(item[0], item[1][i]) if len(item[1]) > i else '', kwargs.items())
                 write_row(row)
         else:
-            for key, val in kwargs.items():
-                write_row([key] + list(map(str, val)))
+            for k, v in kwargs.items():
+                write_row([k] + list(map(lambda out: convert(k, out), v)))
 
     file.close()
 
-def read_from_CSV(file_name, delim=',', columnar=True):
+def read_from_CSV(file_name, delim=',', columnar=True, line_end=''):
     """
-    Reads CSV data from the file with the given name (extensionless), returning a dictionary with the columns keyed by
-    their headers. Use the csv module for a more versatile means of reading and writing csv formatted data. Assumes
+    Reads delimited data from the file with the given name (with extension). Use the csv module for a more versatile
+    means of reading and writing csv formatted data.
+
+    :param file_name: The file name to read from, with extension.
+    :param delim: The delimeter used in the file, set to a comma by default.
+    :param columnar: Whether the data should be read by column (True) or by row (False).
+    :param line_end: Any additional characters inserted before the newline that require removal.
+
+    :return A dictionary containing lists of values, keyed by the headers.
     """
 
     data = dict()
 
     def convert(x):
+
         try:
             a = float(x)
         except ValueError:
@@ -427,10 +445,12 @@ def read_from_CSV(file_name, delim=',', columnar=True):
 
         return b if a == b else a
 
-    with open(file_name + ".csv") as file:
+    process_line = lambda l: l.strip().replace(line_end + '\n', '').split(delim)
+
+    with open(file_name) as file:
 
         if columnar:
-            keys = file.readline().replace('\n', '').split(delim)
+            keys = process_line(file.readline())
             for key in keys:
                 data[key] = []
 
@@ -441,8 +461,8 @@ def read_from_CSV(file_name, delim=',', columnar=True):
                     if val:
                         data[key].append(convert(val))
         else:
-            for line in file:
-                line = list(map(lambda x: convert(x.replace('\n', '')), line.split(delim)))
+            for line in map(process_line, file):
+                line = list(map(convert, line))
                 data[line[0]] = line[1:] if len(line) > 1 else []
 
     file.close()
@@ -457,7 +477,6 @@ def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=No
     Any other settings should be added by keyword. The list of kwargs can be found on the
     page linked to above. Color options may be found at https://matplotlib.org/examples/color/named_colors.html. They
     can be used with the color, markerfacecolor and markeredgecolor keywords, as well as a few others.
-
     :param x: The sequence of x values to plot.
     :param y: The sequence of y values to plot.
     :param err_x: The sequence of errors in the x values.
@@ -527,3 +546,25 @@ def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=No
     plt.legend()
 
     return plt.gcf()
+
+def save_figure(file_name, *extensions, figure=None, display=False):
+    """
+    Saves the current or specified figure to files with the given name and extensions and shows the plot if requested,
+    clearing all figures.
+
+    :param file_name: The name of the plot files.
+    :param extensions: A sequence of extensions to save the file with.
+    :param figure: The figure to save and display. The default is the current figure.
+    :param display: Whether or not to display the plot immediately after saving, which clears the figures.
+    """
+
+    if figure is None:
+        figure = plt.gcf()
+    else:
+        figure = plt.figure(figure)
+
+    for ext in extensions:
+        figure.savefig(file_name + '.' + ext, dpi='figure')
+
+    if display:
+        plt.show()

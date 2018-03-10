@@ -6,7 +6,7 @@ sys.path.append('../../../')
 from fitting import *
 
 # Reads data from a .csv file
-data = read_from_CSV('data')
+data = read_from_CSV('data.csv')
 x = data['x']
 y = data['y']
 err_y = data['err_y']
@@ -44,6 +44,4 @@ draw_plot(x, fit=fit_3, flegend='Cubic', color='orangered')
 draw_plot(x, fit=fit_5, flegend='5th Order', color='darkorchid')
 
 # Save the figure in two separate formats and display the plot
-plt.gcf().savefig('plot.eps', dpi='figure')
-plt.gcf().savefig('plot.png', dpi='figure')
-plt.show()
+save_figure('plot', 'eps', 'png', display=True)

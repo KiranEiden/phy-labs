@@ -75,5 +75,4 @@ A_4 = [0.043, 0.064, 0.075, 0.193, 0.346, 0.270, 0.129, 0.069, 0.054]
 do_fit(freq_4, A_4, err_freq, err_A, "Plot 4", 4, file='plot_4', color='navajowhite')
 
 # Save figure with multiple plots, and display all
-plt.figure(0).savefig('all_plots.png')
-plt.show()
+save_figure('all_plots', 'png', figure=0, display=True)

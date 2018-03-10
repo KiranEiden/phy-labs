@@ -36,30 +36,30 @@ class TestFitting(unittest.TestCase):
         res = poly_fit(x, y)
         self.fit_assertion(x, y, poly, res)
 
-        x = [1.0, 2.4, 3.0, 4.1, 5.6, 6.7]
+        x = [1.0, 2.4, 3.0, 4.1, 5.6, 6.7, 7.4]
         y = list(map(lambda x: 4 - 3 * x + 2 * x**2 - x**3, x))
         res = poly_fit(x, y, n=3)
         self.fit_assertion(x, y, poly, res)
 
     def test_CSV(self):
 
-        x = [9.4, 4.8e4, 9.3, 7.7]
+        x = [9.4, 4.8 / 7, 9.3, 7.7]
         y = [44, 99, 66, 33]
         z = ['I\'m', 'a', 'Seawolf']
 
         write_to_CSV(x=x, y=y)
-        data = read_from_CSV('data')
+        data = read_from_CSV('data.csv')
         self.assertEqual(data['x'], x)
         self.assertEqual(data['y'], y)
 
         write_to_CSV(delim=';', columnar=False, x_data=x, y_data=y, z_data=z)
-        data = read_from_CSV('data', delim=';', columnar=False)
+        data = read_from_CSV('data.csv', delim=';', columnar=False)
         self.assertEqual(data['x_data'], x)
         self.assertEqual(data['y_data'], y)
         self.assertEqual(data['z_data'], z)
 
         write_to_CSV(whats=x, a=y, seawolf=z)
-        data = read_from_CSV('data')
+        data = read_from_CSV('data.csv')
         self.assertEqual(data['whats'], x)
         self.assertEqual(data['a'], y)
         self.assertEqual(data['seawolf'], z)

@@ -11,7 +11,7 @@ sys.path.append('../../../')
 from fitting import *
 
 # Reads the data from a CSV file
-data = read_from_CSV('data')
+data = read_from_CSV('data.csv')
 x, y, err_y = data['x'], data['y'], data['err_y']
 
 """
@@ -36,7 +36,7 @@ labels = "x (unit)", "y (unit)"
 draw_plot(x, y, err_y=err_y, fit=fit, title=r"$\Pi$co de Gallo", labels=labels, color='orangered')
 
 # Save the plot programmatically.
-# plt.gcf().savefig('plot.png', dpi=plt.gcf().dpi)
+# plt.gcf().savefig('plot.png', dpi='figure')
 
 # Display the plot, with an interactive toolbar (for panning, saving, etc.) at the bottom.
 plt.show()
