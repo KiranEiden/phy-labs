@@ -265,7 +265,7 @@ def power(n):
 def coeff(func, n):
     """
     Returns a single-variable function that evaluates to func(nx), where x is the I.V. May be used for quickly
-    contructing linearly independent combinations of functions.
+    constructing linearly independent combinations of functions.
     """
 
     return lambda x: func(n * x)
@@ -383,19 +383,26 @@ def r_squared(x, y, fit):
 
 # Input and output
 
-def write_to_CSV(file_name='data.csv', delim=',', columnar=True, fmt='{}', line_end='', **kwargs):
+def write_to_CSV(file_name='data.csv', delim=',', columnar=True, **kwargs):
     """
     Writes the values in kwargs to a CSV file, preceded by the keys. Use the csv module for a more versatile means of
     reading and writing csv formatted data.
 
     :param file_name: The name of the file to write to, with extension.
-    :param delim: The delimeter to use, set to a comma by default.
+    :param delim: The delimiter to use, set to a comma by default.
     :param columnar: Whether to output the data in columns (True) or in rows (False).
-    :param fmt: A format to apply to data before writing.
-    :param line_end: A string to write to the end of the line before the newline character.
+    Keywords, avoid using as column headers:
+    :keyword fmt: A format to apply to data before writing.
+    :keyword line_end: A string to write to the end of the line before the newline character.
+    :keyword post_header: Characters to be written to the line after the header in columnar formats. Will be delimited
+        if passed in as a sequence.
     """
 
-    # Function for applying formatting
+    # Some kwarg handling
+    fmt = kwargs['fmt'] if 'fmt' in kwargs else '{}'
+    line_end = kwargs['line_end'] if 'line_end' in kwargs else ''
+
+    # Function for applying format
     convert = lambda key, out: fmt[key].format(out) if isinstance(fmt, dict) else fmt.format(out)
 
     with open(file_name, 'w') as file:
@@ -408,6 +415,14 @@ def write_to_CSV(file_name='data.csv', delim=',', columnar=True, fmt='{}', line_
             n_rows = max(map(len, kwargs.values()))
             write_row(kwargs.keys())
 
+            if 'post_header' in kwargs:
+                post_header = kwargs['post_header']
+
+                if isinstance(post_header, Sequence):
+                    write_row(post_header)
+                else:
+                    file.write(post_header + '\n')
+
             for i in range(0, n_rows):
                 row = map(lambda item: convert(item[0], item[1][i]) if len(item[1]) > i else '', kwargs.items())
                 write_row(row)
@@ -417,15 +432,16 @@ def write_to_CSV(file_name='data.csv', delim=',', columnar=True, fmt='{}', line_
 
     file.close()
 
-def read_from_CSV(file_name, delim=',', columnar=True, line_end=''):
+def read_from_CSV(file_name, delim=',', columnar=True, **kwargs):
     """
     Reads delimited data from the file with the given name (with extension). Use the csv module for a more versatile
     means of reading and writing csv formatted data.
 
     :param file_name: The file name to read from, with extension.
-    :param delim: The delimeter used in the file, set to a comma by default.
+    :param delim: The delimiter used in the file, set to a comma by default.
     :param columnar: Whether the data should be read by column (True) or by row (False).
-    :param line_end: Any additional characters inserted before the newline that require removal.
+    :keyword line_end: Any additional characters inserted before the newline that require removal.
+    :keyword post_header: Boolean value. Will skip the line after the header in columnar formats if set to True.
 
     :return A dictionary containing lists of values, keyed by the headers.
     """
@@ -445,6 +461,7 @@ def read_from_CSV(file_name, delim=',', columnar=True, line_end=''):
 
         return b if a == b else a
 
+    line_end = kwargs['line_end'] if 'line_end' in kwargs else ''
     process_line = lambda l: l.strip().replace(line_end + '\n', '').split(delim)
 
     with open(file_name) as file:
@@ -547,24 +564,24 @@ def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=No
 
     return plt.gcf()
 
-def save_figure(file_name, *extensions, figure=None, display=False):
+def save_figure(file_name, *extensions, **kwargs):
     """
     Saves the current or specified figure to files with the given name and extensions and shows the plot if requested,
     clearing all figures.
 
     :param file_name: The name of the plot files.
     :param extensions: A sequence of extensions to save the file with.
-    :param figure: The figure to save and display. The default is the current figure.
-    :param display: Whether or not to display the plot immediately after saving, which clears the figures.
+    :keyword figure: The figure to save and display. Default to the current figure.
+    :keyword display: Whether or not to display the plot immediately after saving, which clears the figures.
     """
 
-    if figure is None:
+    if 'figure' not in kwargs:
         figure = plt.gcf()
     else:
-        figure = plt.figure(figure)
+        figure = plt.figure(kwargs['figure'])
 
     for ext in extensions:
         figure.savefig(file_name + '.' + ext, dpi='figure')
 
-    if display:
+    if 'display' in kwargs and kwargs['display']:
         plt.show()
