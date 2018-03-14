@@ -7,21 +7,78 @@ from scipy.odr import *
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 
+class Fit:
+    """
+    Class for storing fit parameters. Its objects are callable, returning the results of the fitted function.
+    """
+
+    def __init__(self, func, params, sd=None):
+
+        self.p = params
+        self.func = func
+
+        # Executed on calling the fit object.
+        self.on_call = fixed_params(func, *params)
+
+        """
+        Added to maintain some level of generality - there are likely more efficient implementations, and ones less
+        dependent on order.
+        """
+        self._observed = ('p', 'sd')
+        self.items = None
+
+        self.sd = sd if sd is not None else len(params) * [None]
+
+    def __call__(self, *args, **kwargs):
+
+        return self.on_call(*args, **kwargs)
+
+    # String representations - what should __str__ return?
+
+    def __repr__(self):
+
+        return "{}, {}".format(self.func.__name__, self.items)
+
+    # For iterating over items.
+
+    def __getitem__(self, item):
+
+        return self.items[item]
+
+    def __iter__(self):
+
+        return iter(self.items)
+
+    # Acts almost as a listener, reassigning self.items only when one of the component sequences is changed.
+
+    def __setattr__(self, key, value):
+
+        super().__setattr__(key, value)
+
+        if 'items' in self.__dict__ and key in self._observed:
+            self.items = list(zip(*map(self.__getattribute__, self._observed)))
+
 def _validate(fun, eq_classes=({'x', 'y', 'err_x', 'err_y'})):
-    """ Decorator that ensures that all arguments in the same equivalence class have the same length. """
+    """
+    Decorator that ensures that all arguments in the same equivalence class have the same length. Could add automatic
+    conversion to sequences and some other useful checks for parameters that cause cryptic error messages.
+    """
 
     def wrapper(*args, **kwargs):
 
+        # Get argument names and add them to kwargs.
         arg_names = inspect.getfullargspec(fun)[0]
         for k, v in zip(arg_names, args):
             kwargs[k] = v
 
+        # Function for pairwise comparison,
         def reducer(arg_a, arg_b):
             a, b = kwargs[arg_a], kwargs[arg_b]
             if a is not None and b is not None and len(a) != len(b):
                 raise ValueError("{} must be of same length as {}.".format(arg_a, arg_b))
             return arg_b if b is not None else arg_a
 
+        # Compare all of members of the equivalence classes that were passed in as arguments.
         for cls in eq_classes:
             cls = filter(lambda arg: arg in kwargs, cls)
             try:
@@ -34,7 +91,7 @@ def _validate(fun, eq_classes=({'x', 'y', 'err_x', 'err_y'})):
     return wrapper
 
 def _general_fit(x, y, funcs, err_y=None):
-    """ Fits the data set (x and y) to a linear combination of the input functions, returning the parameters. """
+    """ Fits the dataset (x and y) to a linear combination of the input functions, returning the parameters. """
 
     n = len(x)
 
@@ -63,10 +120,10 @@ def _general_fit(x, y, funcs, err_y=None):
 @_validate
 def ls_regression(x, y, funcs, err_y=None, p0=None):
     """
-    Returns the results of a scipy curve fit for the input data set and functions.
+    Returns the results of a scipy curve fit for the input dataset and functions.
 
-    :param x: The sequence of x values for the data set.
-    :param y: The sequence of y values for the data set.
+    :param x: The sequence of x values for the dataset.
+    :param y: The sequence of y values for the dataset.
     :param funcs: The single function or sequence of functions to determine parameters for. If a sequence of functions
         is input, the fit will be to a linear combination, with the coefficients the parameters. Otherwise, the function
         is assumed to be of the form f(x, *params).
@@ -82,15 +139,15 @@ def ls_regression(x, y, funcs, err_y=None, p0=None):
         raise ValueError("p0 must be specified if funcs is not a sequence.")
 
     res = curve_fit(funcs, x, y, p0, err_y)
-    return res[0], np.sqrt(np.diag(res[1]))
+    return Fit(funcs, res[0], np.sqrt(np.diag(res[1])))
 
 @_validate
 def od_regression(x, y, funcs, err_x, err_y, p0=None):
     """
     Returns the results of an orthogonal distance regression performed for the input function.
 
-    :param x: The sequence of x values for the data set.
-    :param y: The sequence of y values for the data set.
+    :param x: The sequence of x values for the dataset.
+    :param y: The sequence of y values for the dataset.
     :param funcs: The single function or sequence of functions to determine parameters for. If a sequence of functions
         is input, the fit will be to a linear combination, with the coefficients the parameters.
     :param err_x: The errors in the x values.
@@ -103,23 +160,23 @@ def od_regression(x, y, funcs, err_x, err_y, p0=None):
     if isinstance(funcs, Sequence):
         if p0 is None:
             p0 = _general_fit(x, y, funcs, err_y)
-        funcs = swap_args(comb_gen(*funcs))
+        funcs = comb_gen(*funcs)
     elif p0 is None:
         raise ValueError("p0 must be specified if funcs is not a sequence.")
-    model = Model(funcs)
+    model = Model(swap_args(funcs))
 
     # Regression
     odr = ODR(data, model, beta0=p0)
     output = odr.run()
-    return output.beta, output.sd_beta
+    return Fit(funcs, output.beta, output.sd_beta)
 
 @_validate
 def lorentzian_fit(x, y, err_x=None, err_y=None):
     """
     Fits a Lorentzian distribution to the input data.
 
-    :param x: The sequence of x values for the data set.
-    :param y: The sequence of y values for the data set.
+    :param x: The sequence of x values for the dataset.
+    :param y: The sequence of y values for the dataset.
     :param err_x: The errors in the x values.
     :param err_y: The errors in the y values.
     :return: A two dimensional array, containing first the values of the parameters and then the corresponding errors.
@@ -181,15 +238,15 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
     if err_x is None:
         return ls_regression(x, y, lorentzian, err_y, p0)
 
-    return od_regression(x, y, swap_args(lorentzian), err_x, err_y, p0)
+    return od_regression(x, y, lorentzian, err_x, err_y, p0)
 
 @_validate
 def gaussian_fit(x, y, err_x=None, err_y=None):
     """
     Fits a Gaussian distribution to the input data.
 
-    :param x: The sequence of x values for the data set.
-    :param y: The sequence of y values for the data set.
+    :param x: The sequence of x values for the dataset.
+    :param y: The sequence of y values for the dataset.
     :param err_x: The errors in the x values.
     :param err_y: The errors in the y values.
     :return: A two dimensional array, containing first the values of the parameters and then the corresponding errors.
@@ -206,15 +263,15 @@ def gaussian_fit(x, y, err_x=None, err_y=None):
     if err_x is None:
         return ls_regression(x, y, gaussian, err_y, p0)
 
-    return od_regression(x, y, swap_args(gaussian), err_x, err_y, p0)
+    return od_regression(x, y, gaussian, err_x, err_y, p0)
 
 @_validate
 def poly_fit(x, y, err_x=None, err_y=None, n=1):
     """
     Fits an nth order polynomial to the input data.
 
-    :param x: The sequence of x values for the data set.
-    :param y: The sequence of y values for the data set.
+    :param x: The sequence of x values for the dataset.
+    :param y: The sequence of y values for the dataset.
     :param err_x: The errors in the x values.
     :param err_y: The errors in the y values.
     :param n: The order of the polynomial.
@@ -227,14 +284,14 @@ def poly_fit(x, y, err_x=None, err_y=None, n=1):
         if err_y is not None:
             err_y = [1 / e for e in err_y]
         res = np.polyfit(x, y, n, w=err_y, cov=True)
-        return res[0][::-1], np.sqrt(np.diag(res[1]))[::-1]
+        return Fit(poly, res[0][::-1], np.sqrt(np.diag(res[1]))[::-1])
 
     return od_regression(x, y, funcs, err_x, err_y)
 
 @_validate
 def lin_fit_252(x, y, err_y=None):
     """
-    Returns a linear fit for the input data set as a tuple of tuples: the parameters and then their errors.
+    Returns a linear fit for the input dataset as a tuple of tuples: the parameters and then their errors.
     Performed PHY 252 style.
     """
 
@@ -310,7 +367,7 @@ def poly(x, *params):
 
     return sum([p * power(n)(x)for p, n in zip(params, range(0, len(params)))])
 
-# General and particular linear combinations
+# General and particular linear combinations.
 
 def comb_gen(*funcs):
     """
@@ -318,19 +375,23 @@ def comb_gen(*funcs):
     argument (*params).
     """
 
-    def comb_func(x, *params):
+    def linear_combination(x, *params):
         return sum([par * fun(x) for par, fun in zip(params, funcs)])
-    return comb_func
 
-def comb(funcs, params):
+    return linear_combination
+
+def comb(funcs, *params):
     """
     Returns a function that is a linear combination of the input functions with the parameters as coefficients.
     May be used to retrieve the model after fitting to a dataset.
     """
 
-    def comb_func(x):
+    def linear_combination(x):
         return sum([par * fun(x) for par, fun in zip(params, funcs)])
-    return comb_func
+
+    return linear_combination
+
+# Wrappers for modifying the input to other functions.
 
 def fixed_params(func, *params):
     """
@@ -364,12 +425,12 @@ def swap_args(func):
 # Analysis tools
 
 def chi_squared(x, y, err_y, fit):
-    """ Returns the chi-squared value for the input fit and data set. """
+    """ Returns the chi-squared value for the input fit and dataset. """
 
     return sum([((y_i - fit(x_i)) / err_i)**2 for x_i, y_i, err_i in zip(x, y, err_y)])
 
 def r_squared(x, y, fit):
-    """ Returns the unadjusted coefficient of determination for the input fit and data set. """
+    """ Returns the unadjusted coefficient of determination for the input fit and dataset. """
 
     y_bar = np.mean(y)
 
@@ -470,6 +531,9 @@ def read_from_CSV(file_name, delim=',', columnar=True, **kwargs):
             keys = process_line(file.readline())
             for key in keys:
                 data[key] = []
+
+            if 'post_header' in kwargs and kwargs['post_header']:
+                next(file)
 
             for line in file:
                 line = line.split(delim)
@@ -575,13 +639,13 @@ def save_figure(file_name, *extensions, **kwargs):
     :keyword display: Whether or not to display the plot immediately after saving, which clears the figures.
     """
 
-    if 'figure' not in kwargs:
-        figure = plt.gcf()
-    else:
-        figure = plt.figure(kwargs['figure'])
+    figure = plt.figure(kwargs.pop('figure')) if 'figure' in kwargs else plt.gcf()
+
+    if 'dpi' not in kwargs:
+        kwargs['dpi'] = 'figure'
 
     for ext in extensions:
-        figure.savefig(file_name + '.' + ext, dpi='figure')
+        figure.savefig(file_name + '.' + ext, **kwargs)
 
-    if 'display' in kwargs and kwargs['display']:
+    if 'display' in kwargs and kwargs.pop('display'):
         plt.show()

@@ -12,31 +12,29 @@ y = data['y']
 err_y = data['err_y']
 
 # Function for nice printing
-def print_poly(res):
+def print_poly(fit):
     """ Prints the regression result in a tabular format. """
 
-    print("Order {} Fit".format(len(res[0]) - 1))
+    print("Order {} Fit".format(len(fit.p) - 1))
 
-    row_format = "{:>15}" * (len(res[0]) + 1)
-    print(row_format.format('Power:', *range(0, len(res[0]))))
-    row_format = "{:>15.6}" * (len(res[0]) + 1)
-    print(row_format.format('Coeff:', *res[0]))
-    print(row_format.format('Error:', *res[1]))
+    row_format = "{:>15}" * (len(fit.p) + 1)
+    print(row_format.format('Power:', *range(0, len(fit.p))))
+    row_format = "{:>15.6}" * (len(fit.p) + 1)
+    print(row_format.format('Coeff:', *fit.p))
+    print(row_format.format('Error:', *fit.sd))
 
 # Linear fit
-res_1 = poly_fit(x, y, err_y=err_y)
-fit_1 = fixed_params(poly, *res_1[0])
-print_poly(res_1)
+fit_1 = poly_fit(x, y, err_y=err_y)
+print_poly(fit_1)
 
 # Cubic fit
-res_3 = poly_fit(x, y, err_y=err_y, n=3)
-fit_3 = fixed_params(poly, *res_3[0])
-print_poly(res_3)
+fit_3 = poly_fit(x, y, err_y=err_y, n=3)
+print_poly(fit_3)
 
 # 5th order fit
-res_5 = poly_fit(x, y, err_y=err_y, n=5)
-fit_5 = fixed_params(poly, *res_5[0])
-print_poly(res_5)
+fit_5 = poly_fit(x, y, err_y=err_y, n=5)
+print_poly(fit_5)
+print(fit_5)
 
 # Draws the plot with the data and the 3 fits
 draw_plot(x, y, err_y=err_y, fit=fit_1, title="Sample Polynomial Fits", flegend='Linear')

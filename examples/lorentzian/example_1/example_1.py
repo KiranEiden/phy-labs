@@ -22,16 +22,15 @@ y = [(18 + i) / 10 for i in range(0, 61)] # Numbers from 18.0 to 24.0
 err_y = len(y) * [0.05] # A list of the same length as y, but containing only 0.05
 """
 
-p, err_p = lorentzian_fit(x, y, err_y=err_y)
+fit = lorentzian_fit(x, y, err_y=err_y)
 
 # Print the parameters
-print("Amplitude: {} +- {}".format(p[0], err_p[0]))
-print("Peak Value: {}".format(p[0] / (np.pi * p[1])))
-print("Gamma: {} +- {}".format(p[1], err_p[1]))
-print("Location: {} +- {}".format(p[2], err_p[2]))
+print("Amplitude: {} +- {}".format(fit.p[0], fit.sd[0]))
+print("Peak Value: {}".format(fit.p[0] / (np.pi * fit.p[1])))
+print("Gamma: {} +- {}".format(fit.p[1], fit.sd[1]))
+print("Location: {} +- {}".format(fit.p[2], fit.sd[2]))
 
 # Convert the result to a fit function and plot the data
-fit = fixed_params(lorentzian, *p)
 labels = "x (unit)", "y (unit)"
 draw_plot(x, y, err_y=err_y, fit=fit, title=r"$\Pi$co de Gallo", labels=labels, color='orangered')
 
