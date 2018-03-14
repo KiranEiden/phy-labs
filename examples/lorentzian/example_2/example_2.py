@@ -13,13 +13,13 @@ def do_fit(x, y, err_x, err_y, title, pos, file=None, color='orangered'):
     print(title)
 
     # Fits to the data set
-    res = lorentzian_fit(x, y, err_x, err_y)
+    fit = lorentzian_fit(x, y, err_x, err_y)
     # Amplitude parameter
-    amp, err_amp = res[0][0], res[0][1]
+    amp, err_amp = fit.p[0], fit.p[1]
     # Half width at half maximum
-    gam, err_gam = res[0][1], res[1][1]
+    gam, err_gam = fit.p[1], fit.sd[1]
     # Location parameter
-    loc, err_loc = res[0][2], res[1][2]
+    loc, err_loc = fit.p[2], fit.sd[2]
     # Computes peak value from width and amplitude
     peak, err_peak = amp / (np.pi * gam), np.sqrt(
         (err_amp / (np.pi * gam))**2 + (amp * err_gam / (np.pi * gam**2))**2)
@@ -32,7 +32,6 @@ def do_fit(x, y, err_x, err_y, title, pos, file=None, color='orangered'):
     print()
 
     # Plot on figure 0
-    fit = fixed_params(lorentzian, *res[0])
     labels = r"$\omega$ (Hz)", "A (cm)"
 
     draw_plot(x, y, err_x, err_y, fit, title, labels, figure=0, subplot=(2, 2, pos), color=color, markersize=4.0)
@@ -40,7 +39,7 @@ def do_fit(x, y, err_x, err_y, title, pos, file=None, color='orangered'):
     if file is not None:
         # Plot on separate figure
         draw_plot(x, y, err_x, err_y, fit, title, labels, figure=pos, color=color, markersize=4.5)
-        plt.gcf().savefig(file)
+        save_figure(file, 'png', figure=pos)
 
 # Sets the title of the first figure
 plt.figure(0)
