@@ -34,7 +34,6 @@ print_poly(fit_3)
 # 5th order fit
 fit_5 = poly_fit(x, y, err_y=err_y, n=5)
 print_poly(fit_5)
-print(fit_5)
 
 # Draws the plot with the data and the 3 fits
 draw_plot(x, y, err_y=err_y, fit=fit_1, title="Sample Polynomial Fits", flegend='Linear')
