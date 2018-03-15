@@ -450,7 +450,7 @@ def write_to_CSV(file='data.csv', delim=',', columnar=True, **kwargs):
     reading and writing csv formatted data.
 
     :param file: The open file object or path to the file to write to, with extension.
-    :type file: TestIO, str
+    :type file: TextIO, str
     :param delim: The delimiter to use, set to a comma by default.
     :param columnar: Whether to output the data in columns (True) or in rows (False).
 
@@ -666,10 +666,6 @@ def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=No
     :param labels: The axes labels, passed in as a sequence.
     .. note:: Matplotlib supports Latex syntax for titles and axes labels - see
             https://matplotlib.org/2.0.2/users/usetex.html
-    :param dlegend: Legend label for the data.
-    :param flegend: Legend label for the fit.
-    :param data_style: Style for the data points. Black dots by default.
-    :param fit_style: Style for the fit curve. Blue line by default.
 
     Keywords:
     :keyword step: The step size for the points on the curve. Can be ignored for linear fits, but impacts the apparent
