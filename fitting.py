@@ -71,7 +71,7 @@ def _validate(fun, eq_classes=({'x', 'y', 'err_x', 'err_y'})):
         for k, v in zip(arg_names, args):
             kwargs[k] = v
 
-        # Function for pairwise comparison,
+        # Function for pairwise comparison.
         def reducer(arg_a, arg_b):
             a, b = kwargs[arg_a], kwargs[arg_b]
             if a is not None and b is not None and len(a) != len(b):
@@ -444,71 +444,103 @@ def r_squared(x, y, fit):
 
 # Input and output
 
-def write_to_CSV(file_name='data.csv', delim=',', columnar=True, **kwargs):
+def write_to_CSV(file='data.csv', delim=',', columnar=True, **kwargs):
     """
     Writes the values in kwargs to a CSV file, preceded by the keys. Use the csv module for a more versatile means of
     reading and writing csv formatted data.
 
-    :param file_name: The name of the file to write to, with extension.
+    :param file: The open file object or path to the file to write to, with extension.
+    :type file: TestIO, str
     :param delim: The delimiter to use, set to a comma by default.
     :param columnar: Whether to output the data in columns (True) or in rows (False).
+
     Keywords, avoid using as column headers:
     :keyword fmt: A format to apply to data before writing.
     :keyword line_end: A string to write to the end of the line before the newline character.
+    :keyword pre_header: Characters to be written to the line prior the header in columnar formats. Will be delimited
+        if passed in as a sequence. A newline character is automatically appended to strings.
     :keyword post_header: Characters to be written to the line after the header in columnar formats. Will be delimited
-        if passed in as a sequence.
+        if passed in as a sequence. A newline character is automatically appended to strings.
+    :keyword append: Whether to open the file in append or write mode. The default is write (False). This option is
+        ignored if a file object was passed in.
+    :keyword close: Whether to close the file before returning. The default setting is True.
+
+    :return The file object that was written to.
     """
 
     # Some kwarg handling
-    fmt = kwargs['fmt'] if 'fmt' in kwargs else '{}'
-    line_end = kwargs['line_end'] if 'line_end' in kwargs else ''
+    def_fmt = '{}'
+    fmt = kwargs.pop('fmt', def_fmt)
+    line_end = kwargs.pop('line_end', '')
+    pre_header = kwargs.pop('pre_header', None)
+    post_header = kwargs.pop('post_header', None)
+    close = kwargs.pop('close', True)
+    file_mode = 'a' if kwargs.pop('append', False) else 'w'
 
     # Function for applying format
-    convert = lambda key, out: fmt[key].format(out) if isinstance(fmt, dict) else fmt.format(out)
+    def convert(key, out):
+        if isinstance(fmt, dict):
+            return fmt.setdefault(key, def_fmt).format(out)
+        return fmt.format(out)
 
-    with open(file_name, 'w') as file:
+    # Open new file if path was given
+    if isinstance(file, str):
+        file = open(file, file_mode)
 
-        def write_row(seq):
-            file.write(delim.join(seq))
-            file.write(line_end + '\n')
+    # Helper functions
+    def write_row(seq):
+        file.write(delim.join(seq))
+        file.write(line_end + '\n')
 
-        if columnar:
-            n_rows = max(map(len, kwargs.values()))
-            write_row(kwargs.keys())
+    def handle_padding(pad):
+        if pad is not None:
+            if isinstance(pad, str):
+                file.write(pad + '\n')
+            else:
+                write_row(pad)
 
-            if 'post_header' in kwargs:
-                post_header = kwargs['post_header']
+    # Write to file
+    if columnar:
+        handle_padding(pre_header)
 
-                if isinstance(post_header, Sequence):
-                    write_row(post_header)
-                else:
-                    file.write(post_header + '\n')
+        n_rows = max(map(len, kwargs.values()))
+        write_row(kwargs.keys())
 
-            for i in range(0, n_rows):
-                row = map(lambda item: convert(item[0], item[1][i]) if len(item[1]) > i else '', kwargs.items())
-                write_row(row)
-        else:
-            for k, v in kwargs.items():
-                write_row([k] + list(map(lambda out: convert(k, out), v)))
+        handle_padding(post_header)
 
-    file.close()
+        for i in range(0, n_rows):
+            row = map(lambda item: convert(item[0], item[1][i]) if len(item[1]) > i else '', kwargs.items())
+            write_row(row)
+    else:
+        for k, v in kwargs.items():
+            write_row([k] + list(map(lambda out: convert(k, out), v)))
 
-def read_from_CSV(file_name, delim=',', columnar=True, **kwargs):
+    if close:
+        file.close()
+    return file
+
+def read_from_CSV(file, delim=',', columnar=True, **kwargs):
     """
     Reads delimited data from the file with the given name (with extension). Use the csv module for a more versatile
     means of reading and writing csv formatted data.
 
-    :param file_name: The file name to read from, with extension.
+    :param file: The open file object or path to the file to read from, with extension.
+    :type file: TextIO, str
     :param delim: The delimiter used in the file, set to a comma by default.
     :param columnar: Whether the data should be read by column (True) or by row (False).
+
+    Keywords:
     :keyword line_end: Any additional characters inserted before the newline that require removal.
-    :keyword post_header: Boolean value. Will skip the line after the header in columnar formats if set to True.
+    Specific to columnar formats:
+    :keyword pre_header: Integer value. Will skip the first pre_header lines in the file if set.
+    :keyword post_header: Integer value. Will skip that number of lines immediately after the header if set.
 
     :return A dictionary containing lists of values, keyed by the headers.
     """
 
     data = dict()
 
+    # Helper functions
     def convert(x):
 
         try:
@@ -522,35 +554,100 @@ def read_from_CSV(file_name, delim=',', columnar=True, **kwargs):
 
         return b if a == b else a
 
-    line_end = kwargs['line_end'] if 'line_end' in kwargs else ''
+    line_end = kwargs.setdefault('line_end', '')
     process_line = lambda l: l.strip().replace(line_end + '\n', '').split(delim)
 
-    with open(file_name) as file:
+    # Open file if path was given
+    if isinstance(file, str):
+        file = open(file)
 
-        if columnar:
-            keys = process_line(file.readline())
-            for key in keys:
-                data[key] = []
+    # Read in data
+    if columnar:
+        for i in range(0, kwargs.setdefault('pre_header', 0)):
+            next(file)
 
-            if 'post_header' in kwargs and kwargs['post_header']:
-                next(file)
+        keys = process_line(file.readline())
+        for key in keys:
+            data[key] = []
 
-            for line in file:
-                line = line.split(delim)
-                for key, val in zip(keys, line):
-                    val = val.replace('\n', '')
-                    if val:
-                        data[key].append(convert(val))
-        else:
-            for line in map(process_line, file):
-                line = list(map(convert, line))
-                data[line[0]] = line[1:] if len(line) > 1 else []
+        for i in range(0, kwargs.setdefault('post_header', 0)):
+            next(file)
+
+        for line in file:
+            line = line.split(delim)
+            for key, val in zip(keys, line):
+                val = val.replace('\n', '')
+                if val:
+                    data[key].append(convert(val))
+    else:
+        for line in map(process_line, file):
+            line = list(map(convert, line))
+            data[line[0]] = line[1:] if len(line) > 1 else []
 
     file.close()
     return data
 
-def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=None, dlegend='Data', flegend='Fit',
-              data_style='ko', fit_style='b-', step=None, figure=None, subplot=None, top_adj=0.875, **kwargs):
+def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
+    """
+    Writes the data in the keyword arguments to the specified file in a LaTeX tabular format.
+
+    :param file: The path to the file to write to.
+    :param table_spec: Specifies the alignments and vertical dividers for the tabular (passed as argument to
+        \begin{tabular}). A single alignment character will be expanded across all columns, which will be separated
+        by vertical lines unless an alternative is specified with the 'separator' keyword.
+    :param columnar: Data will be written in rows if set to False, columns otherwise.
+
+    Keyword Arguments. Anything not listed will be interpreted as data (keyed by the header).
+    :keyword append: Whether to append to the file (True) or write over it (False). False by default.
+    :keyword post_header: Characters to write after the header row in columnar formats. '\hline' by default.
+    :keyword separator: Will replace ' | ' in a cross-column expansion of a single alignment character.
+    :keyword as_table: Whether to nest the tabular in a table environment. False by default.
+    :keyword caption: The caption of the table. Will be ignored if unnested.
+    :keyword label: The label of the table, for reference within a document. Will be ignored if unnested.
+    :keyword placement: Fills the space of 'pos' in '\begin{table}[pos]'.
+    """
+
+    # Retrieve information from kwargs. Add some exceptions for improper input?
+    append = kwargs.pop('append', False)
+    file_mode = 'a' if append else 'w'
+    post_header = kwargs.pop('post_header', '\\hline')
+    separator = kwargs.pop('separator', ' | ')
+    as_table = kwargs.pop('as_table', False)
+    caption = kwargs.pop('caption', None)
+    label = kwargs.pop('label', None)
+    placement = '[{}]'.format(kwargs.pop('placement')) if 'placement' in kwargs else ''
+
+    # Expands single alignment character across all columns, if necessary
+    n_cols = len(kwargs.keys())
+    if len(table_spec) == 1:
+        table_spec = separator.join(n_cols * [table_spec])
+
+    # Begin writing
+    with open(file, file_mode) as file:
+
+        file.write('\n')
+
+        # LaTeX table stuff
+        if as_table:
+            file.write('\\begin{table}' + placement + '\n')
+            if caption is not None:
+                file.write('\\caption{' + caption + '}\n')
+            if label is not None:
+                file.write('\\label{' + label + '}\n')
+
+        file.write('\\begin{tabular}{' + table_spec + '}\n')
+
+        # Write actual data
+        write_to_CSV(file, delim=' & ', columnar=columnar, line_end='//', post_header=post_header,
+                     append=True, close=False, **kwargs)
+
+        # End environments
+        file.write('\\end{tabular}\n')
+
+        if as_table:
+            file.write('\\end{table}\n')
+
+def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=None, **kwargs):
     """
     Returns a plot object with the input settings. The 'style' parameters follow the abbreviations listed here:
     https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.plot.html, as well as supporting CN notation for color (try
@@ -558,6 +655,8 @@ def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=No
     Any other settings should be added by keyword. The list of kwargs can be found on the
     page linked to above. Color options may be found at https://matplotlib.org/examples/color/named_colors.html. They
     can be used with the color, markerfacecolor and markeredgecolor keywords, as well as a few others.
+
+    Parameters:
     :param x: The sequence of x values to plot.
     :param y: The sequence of y values to plot.
     :param err_x: The sequence of errors in the x values.
@@ -571,33 +670,46 @@ def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=No
     :param flegend: Legend label for the fit.
     :param data_style: Style for the data points. Black dots by default.
     :param fit_style: Style for the fit curve. Blue line by default.
-    :param step: The step size for the points on the curve. Can be ignored for linear fits, but impacts the apparent
+
+    Keywords:
+    :keyword step: The step size for the points on the curve. Can be ignored for linear fits, but impacts the apparent
         smoothness of the curve for other functions.
-    :param figure: The index of the figure to on which to draw the plot, starting at 0. By default the plot will be
+    :keyword figure: The index of the figure to on which to draw the plot, starting at 0. By default the plot will be
         drawn on the last figure used. Multiple plots may be drawn in across multiple figures by modulating the index.
         The individual figures may be retrieved by index by calling plt.figure(figure).
-    :param subplot: A 3-digit natural number or 3-item sequence that indicates the subplot of the figure to draw on.
+    :keyword subplot: A 3-digit natural number or 3-item sequence that indicates the subplot of the figure to draw on.
         The first digit or item is the number of rows in the subplot grid, the second the number of columns, and the
         third the index of the location in the grid (starting at 1). Call plt.figure(figure).suptitle(<title>) or
         plt.gcf().suptitle(<title>) to set a title for the entire figure when displaying multiple subplots.
-    :param top_adj: Due to a bug in matplotlib, a title added to the figure with suptitle will overlap with the subplot
+    :keyword top_adj: Due to a bug in matplotlib, a title added to the figure with suptitle will overlap with the subplot
         titles without manual adjustment. The default setting should work with a one line title and the standard font,
         but this will need to be set explicitly for longer/taller titles (by reducing the value, appears to be a drop
         of about 0.05 per line in the standard font?).
-    :return: The figure on which the plots were drawn.
+    :return: The figure on which the plot was drawn.
     """
 
     # Figure and subplot adjustments
-    if figure is not None:
-        plt.figure(figure)
+    if 'figure' in kwargs:
+        plt.figure(kwargs.pop('figure'))
 
-    if subplot is not None:
+    if 'subplot' in kwargs:
+        subplot = kwargs.pop('subplot')
         if isinstance(subplot, Sequence):
             plt.subplot(*subplot)
         else:
             plt.subplot(subplot)
         plt.tight_layout()
-        plt.subplots_adjust(top=top_adj)
+        plt.subplots_adjust(top=kwargs.pop('top_adj', 0.875))
+
+    # Data keywords
+    data_style = kwargs.pop('data_style', 'ko')
+    dlegend = kwargs.pop('dlegend', 'Data')
+
+    # Fit keywords
+    min_x, max_x = min(x), max(x)
+    step = kwargs.pop('step', (max_x - min_x) / 100)
+    fit_style = kwargs.pop('fit_style', 'b-')
+    flegend = kwargs.pop('flegend', 'Fit')
 
     # Error bar plot of the data
     if y is not None:
@@ -605,10 +717,6 @@ def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=No
 
     # Plots the fit
     if fit is not None:
-        min_x, max_x = min(x), max(x)
-        if step is None:
-            step = (max_x - min_x) / 100
-
         num_steps = round((max_x - min_x) / step)
         f_x = [min_x + i * step for i in range(0, num_steps)]
         plt.plot(f_x, list(map(fit, f_x)), fit_style, label=flegend, **kwargs)
@@ -639,13 +747,13 @@ def save_figure(file_name, *extensions, **kwargs):
     :keyword display: Whether or not to display the plot immediately after saving, which clears the figures.
     """
 
-    figure = plt.figure(kwargs.pop('figure')) if 'figure' in kwargs else plt.gcf()
+    kwargs.setdefault('dpi', 'figure')
 
-    if 'dpi' not in kwargs:
-        kwargs['dpi'] = 'figure'
+    figure = plt.figure(kwargs.pop('figure')) if 'figure' in kwargs else plt.gcf()
+    display = kwargs.pop('display', False)
 
     for ext in extensions:
         figure.savefig(file_name + '.' + ext, **kwargs)
 
-    if 'display' in kwargs and kwargs.pop('display'):
+    if display:
         plt.show()

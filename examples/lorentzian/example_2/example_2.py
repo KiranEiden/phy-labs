@@ -15,7 +15,7 @@ def do_fit(x, y, err_x, err_y, title, pos, file=None, color='orangered'):
     # Fits to the data set
     fit = lorentzian_fit(x, y, err_x, err_y)
     # Amplitude parameter
-    amp, err_amp = fit.p[0], fit.p[1]
+    amp, err_amp = fit.p[0], fit.sd[1]
     # Half width at half maximum
     gam, err_gam = fit.p[1], fit.sd[1]
     # Location parameter
@@ -34,6 +34,8 @@ def do_fit(x, y, err_x, err_y, title, pos, file=None, color='orangered'):
     # Plot on figure 0
     labels = r"$\omega$ (Hz)", "A (cm)"
 
+    # Note that the first 7 arguments may also be specified by keyword (e.g. fit=fit), and must be if an argument is
+    # skipped or they are entered in a different order. The keyword names all match the variable names.
     draw_plot(x, y, err_x, err_y, fit, title, labels, figure=0, subplot=(2, 2, pos), color=color, markersize=4.0)
 
     if file is not None:
