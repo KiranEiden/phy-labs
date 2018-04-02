@@ -457,9 +457,9 @@ def write_to_CSV(file='data.csv', delim=',', columnar=True, **kwargs):
     Keywords, avoid using as column headers:
     :keyword fmt: A format to apply to data before writing.
     :keyword line_end: A string to write to the end of the line before the newline character.
-    :keyword pre_header: Characters to be written to the line prior the header in columnar formats. Will be delimited
+    :keyword preheader: Characters to be written to the line prior the header in columnar formats. Will be delimited
         if passed in as a sequence. A newline character is automatically appended to strings.
-    :keyword post_header: Characters to be written to the line after the header in columnar formats. Will be delimited
+    :keyword postheader: Characters to be written to the line after the header in columnar formats. Will be delimited
         if passed in as a sequence. A newline character is automatically appended to strings.
     :keyword append: Whether to open the file in append or write mode. The default is write (False). This option is
         ignored if a file object was passed in.
@@ -472,8 +472,8 @@ def write_to_CSV(file='data.csv', delim=',', columnar=True, **kwargs):
     def_fmt = '{}'
     fmt = kwargs.pop('fmt', def_fmt)
     line_end = kwargs.pop('line_end', '')
-    pre_header = kwargs.pop('pre_header', None)
-    post_header = kwargs.pop('post_header', None)
+    pre_header = kwargs.pop('preheader', None)
+    post_header = kwargs.pop('postheader', None)
     close = kwargs.pop('close', True)
     file_mode = 'a' if kwargs.pop('append', False) else 'w'
 
@@ -532,8 +532,8 @@ def read_from_CSV(file, delim=',', columnar=True, **kwargs):
     Keywords:
     :keyword line_end: Any additional characters inserted before the newline that require removal.
     Specific to columnar formats:
-    :keyword pre_header: Integer value. Will skip the first pre_header lines in the file if set.
-    :keyword post_header: Integer value. Will skip that number of lines immediately after the header if set.
+    :keyword preheader: Integer value. Will skip the first pre_header lines in the file if set.
+    :keyword postheader: Integer value. Will skip that number of lines immediately after the header if set.
 
     :return A dictionary containing lists of values, keyed by the headers.
     """
@@ -563,14 +563,14 @@ def read_from_CSV(file, delim=',', columnar=True, **kwargs):
 
     # Read in data
     if columnar:
-        for i in range(0, kwargs.setdefault('pre_header', 0)):
+        for i in range(0, kwargs.setdefault('preheader', 0)):
             next(file)
 
         keys = process_line(file.readline())
         for key in keys:
             data[key] = []
 
-        for i in range(0, kwargs.setdefault('post_header', 0)):
+        for i in range(0, kwargs.setdefault('postheader', 0)):
             next(file)
 
         for line in file:
@@ -647,7 +647,7 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
         if as_table:
             file.write('\\end{table}\n')
 
-def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=None, **kwargs):
+def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, xlabel=None, ylabel=None, **kwargs):
     """
     Returns a plot object with the input settings. The 'style' parameters follow the abbreviations listed here:
     https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.plot.html, as well as supporting CN notation for color (try
@@ -661,22 +661,32 @@ def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=No
     :param y: The sequence of y values to plot.
     :param err_x: The sequence of errors in the x values.
     :param err_y: The sequence of errors in the y values.
-    :param fit: The function representing a fit to the data, to be plotted on the same axes.
+    :param fit: A function to be plotted on the same axes. The domain has the same bounds as the x argument, and the
+        number of steps is controlled by the num_steps keyword.
     :param title: The title of the plot.
-    :param labels: The axes labels, passed in as a sequence.
+    :param xlabel: The x-axis label.
+    :param ylabel: The y-axis label.
     .. note:: Matplotlib supports Latex syntax for titles and axes labels - see
             https://matplotlib.org/2.0.2/users/usetex.html
 
     Keywords:
-    :keyword step: The step size for the points on the curve. Can be ignored for linear fits, but impacts the apparent
-        smoothness of the curve for other functions.
+    :keyword dstyle: The style specifier for the data points, using matplotlib abbreviations. Defaults to black
+        circles. Colors may be overwritten with matplotlib keyword arguments.
+    :keyword fstyle: The style specifier for the input function, using matplotlib abbreviations. Defaults to a solid
+        blue line. Colors may be overwritten with matplotlib keyword arguments.
+    :keyword dlegend: The legend entry for the data series.
+    :keyword flegend: The legend entry for the function.
+    :keyword num_steps: The number of points to be computed from the fit argument. Impacts the smoothness of the curve.
+        The default setting is 100.
     :keyword figure: The index of the figure to on which to draw the plot, starting at 0. By default the plot will be
         drawn on the last figure used. Multiple plots may be drawn in across multiple figures by modulating the index.
         The individual figures may be retrieved by index by calling plt.figure(figure).
     :keyword subplot: A 3-digit natural number or 3-item sequence that indicates the subplot of the figure to draw on.
         The first digit or item is the number of rows in the subplot grid, the second the number of columns, and the
         third the index of the location in the grid (starting at 1). Call plt.figure(figure).suptitle(<title>) or
-        plt.gcf().suptitle(<title>) to set a title for the entire figure when displaying multiple subplots.
+        plt.gcf().suptitle(<title>) to set a title for the entire figure when displaying multiple subplots, or use the
+        suptitle keyword.
+    :keyword suptitle: Sets the title at the top of the figure if plots were drawn on subplots.
     :keyword top_adj: Due to a bug in matplotlib, a title added to the figure with suptitle will overlap with the subplot
         titles without manual adjustment. The default setting should work with a one line title and the standard font,
         but this will need to be set explicitly for longer/taller titles (by reducing the value, appears to be a drop
@@ -697,34 +707,37 @@ def draw_plot(x, y=None, err_x=None, err_y=None, fit=None, title=None, labels=No
         plt.tight_layout()
         plt.subplots_adjust(top=kwargs.pop('top_adj', 0.875))
 
+    if 'suptitle' in kwargs:
+        plt.gcf().suptitle(kwargs.pop('suptitle'))
+
     # Data keywords
-    data_style = kwargs.pop('data_style', 'ko')
+    dstyle = kwargs.pop('dstyle', 'ko')
     dlegend = kwargs.pop('dlegend', 'Data')
 
     # Fit keywords
-    min_x, max_x = min(x), max(x)
-    step = kwargs.pop('step', (max_x - min_x) / 100)
-    fit_style = kwargs.pop('fit_style', 'b-')
+    num_steps = kwargs.pop('num_steps', 100)
+    fstyle = kwargs.pop('fstyle', 'b-')
     flegend = kwargs.pop('flegend', 'Fit')
 
     # Error bar plot of the data
     if y is not None:
-        plt.errorbar(x, y, err_y, err_x, data_style, label=dlegend, **kwargs)
+        plt.errorbar(x, y, err_y, err_x, dstyle, label=dlegend, **kwargs)
 
     # Plots the fit
     if fit is not None:
-        num_steps = round((max_x - min_x) / step)
+        min_x, max_x = min(x), max(x)
+        step = (max_x - min_x) / num_steps
         f_x = [min_x + i * step for i in range(0, num_steps)]
-        plt.plot(f_x, list(map(fit, f_x)), fit_style, label=flegend, **kwargs)
+        plt.plot(f_x, list(map(fit, f_x)), fstyle, label=flegend, **kwargs)
 
     # Sets the title
     if title is not None:
         plt.title(title)
 
     # Axis labels
-    if labels is not None:
-        xlabel, ylabel = labels
+    if xlabel is not None:
         plt.xlabel(xlabel)
+    if ylabel is not None:
         plt.ylabel(ylabel)
 
     # Show the legend
@@ -740,16 +753,21 @@ def save_figure(file_name, *extensions, **kwargs):
     :param file_name: The name of the plot files.
     :param extensions: A sequence of extensions to save the file with.
     :keyword figure: The figure to save and display. Default to the current figure.
-    :keyword display: Whether or not to display the plot immediately after saving, which clears the figures.
+    :keyword mode: May be set to 'clf', 'cla', 'close', 'show', or None to apply none of those options. The
+        corresponding pyplot method will be called after saving the figure. The default is 'clf'.
     """
 
     kwargs.setdefault('dpi', 'figure')
 
     figure = plt.figure(kwargs.pop('figure')) if 'figure' in kwargs else plt.gcf()
-    display = kwargs.pop('display', False)
 
     for ext in extensions:
         figure.savefig(file_name + '.' + ext, **kwargs)
 
-    if display:
-        plt.show()
+    modes = {'clf', 'cla', 'close', 'show'}
+    mode = kwargs.pop('mode', 'clf')
+    if mode is None:
+        return
+    if mode not in modes:
+        raise ValueError('Invalid mode specified.')
+    getattr(plt, mode)()
