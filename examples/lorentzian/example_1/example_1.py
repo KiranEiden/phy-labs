@@ -31,8 +31,8 @@ print("Gamma: {} +- {}".format(fit.p[1], fit.sd[1]))
 print("Location: {} +- {}".format(fit.p[2], fit.sd[2]))
 
 # Convert the result to a fit function and plot the data
-labels = "x (unit)", "y (unit)"
-draw_plot(x, y, err_y=err_y, fit=fit, title=r"$\Pi$co de Gallo", labels=labels, color='orangered')
+xlabel, ylabel = "x (unit)", "y (unit)"
+draw_plot(x, y, err_y=err_y, fit=fit, title=r"$\Pi$co de Gallo", xlabel=xlabel, ylabel=ylabel, color='orangered')
 
 # Save the plot programmatically.
 # plt.gcf().savefig('plot.png', dpi='figure')

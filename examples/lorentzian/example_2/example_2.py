@@ -32,15 +32,16 @@ def do_fit(x, y, err_x, err_y, title, pos, file=None, color='orangered'):
     print()
 
     # Plot on figure 0
-    labels = r"$\omega$ (Hz)", "A (cm)"
+    xlabel, ylabel = r"$\omega$ (Hz)", "A (cm)"
 
     # Note that the first 7 arguments may also be specified by keyword (e.g. fit=fit), and must be if an argument is
     # skipped or they are entered in a different order. The keyword names all match the variable names.
-    draw_plot(x, y, err_x, err_y, fit, title, labels, figure=0, subplot=(2, 2, pos), color=color, markersize=4.0)
+    draw_plot(x, y, err_x, err_y, fit, title, xlabel=xlabel, ylabel=ylabel, figure=0, subplot=(2, 2, pos), color=color,
+              markersize=4.0)
 
     if file is not None:
         # Plot on separate figure
-        draw_plot(x, y, err_x, err_y, fit, title, labels, figure=pos, color=color, markersize=4.5)
+        draw_plot(x, y, err_x, err_y, fit, title, xlabel=xlabel, ylabel=ylabel, figure=pos, color=color, markersize=4.5)
         save_figure(file, 'png', figure=pos)
 
 # Sets the title of the first figure
@@ -76,4 +77,4 @@ A_4 = [0.043, 0.064, 0.075, 0.193, 0.346, 0.270, 0.129, 0.069, 0.054]
 do_fit(freq_4, A_4, err_freq, err_A, "Plot 4", 4, file='plot_4', color='navajowhite')
 
 # Save figure with multiple plots, and display all
-save_figure('all_plots', 'png', figure=0, display=True)
+save_figure('all_plots', 'png', figure=0, mode='show')
