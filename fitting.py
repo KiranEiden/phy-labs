@@ -599,7 +599,7 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
 
     Keyword Arguments. Anything not listed will be interpreted as data (keyed by the header).
     :keyword append: Whether to append to the file (True) or write over it (False). False by default.
-    :keyword post_header: Characters to write after the header row in columnar formats. '\hline' by default.
+    :keyword postheader: Characters to write after the header row in columnar formats. '\hline' by default.
     :keyword separator: Will replace ' | ' in a cross-column expansion of a single alignment character.
     :keyword as_table: Whether to nest the tabular in a table environment. False by default.
     :keyword caption: The caption of the table. Will be ignored if unnested.
@@ -610,7 +610,7 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
     # Retrieve information from kwargs. Add some exceptions for improper input?
     append = kwargs.pop('append', False)
     file_mode = 'a' if append else 'w'
-    post_header = kwargs.pop('post_header', '\\hline')
+    postheader = kwargs.pop('postheader', '\\hline')
     separator = kwargs.pop('separator', ' | ')
     as_table = kwargs.pop('as_table', False)
     caption = kwargs.pop('caption', None)
@@ -638,7 +638,7 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
         file.write('\\begin{tabular}{' + table_spec + '}\n')
 
         # Write actual data
-        write_to_CSV(file, delim=' & ', columnar=columnar, line_end='//', post_header=post_header,
+        write_to_CSV(file, delim=' & ', columnar=columnar, line_end='//', postheader=postheader,
                      append=True, close=False, **kwargs)
 
         # End environments
@@ -752,20 +752,24 @@ def save_figure(file_name, *extensions, **kwargs):
 
     :param file_name: The name of the plot files.
     :param extensions: A sequence of extensions to save the file with.
+
     :keyword figure: The figure to save and display. Default to the current figure.
-    :keyword mode: May be set to 'clf', 'cla', 'close', 'show', or None to apply none of those options. The
+    :keyword mode: May be set to 'clf', 'show' or None to apply none of those options. The
         corresponding pyplot method will be called after saving the figure. The default is 'clf'.
+    A list of additional kwargs may be found here: https://matplotlib.org/api/_as_gen/matplotlib.pyplot.savefig.html.
+    The defaults for 'dpi' and 'bbox_inches' are reset to 'figure' and 'tight', but may still be overridden.
     """
 
     kwargs.setdefault('dpi', 'figure')
+    kwargs.setdefault('bbox_inches', 'tight')
 
     figure = plt.figure(kwargs.pop('figure')) if 'figure' in kwargs else plt.gcf()
+    mode = kwargs.pop('mode', 'clf')
 
     for ext in extensions:
         figure.savefig(file_name + '.' + ext, **kwargs)
 
-    modes = {'clf', 'cla', 'close', 'show'}
-    mode = kwargs.pop('mode', 'clf')
+    modes = {'clf', 'show'}
     if mode is None:
         return
     if mode not in modes:
