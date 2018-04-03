@@ -599,6 +599,7 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
 
     Keyword Arguments. Anything not listed will be interpreted as data (keyed by the header).
     :keyword append: Whether to append to the file (True) or write over it (False). False by default.
+    :keyword center: Whether to center the table. True by default.
     :keyword postheader: Characters to write after the header row in columnar formats. '\hline' by default.
     :keyword separator: Will replace ' | ' in a cross-column expansion of a single alignment character.
     :keyword as_table: Whether to nest the tabular in a table environment. False by default.
@@ -609,6 +610,7 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
 
     # Retrieve information from kwargs. Add some exceptions for improper input?
     append = kwargs.pop('append', False)
+    center = kwargs.pop('center', True)
     file_mode = 'a' if append else 'w'
     postheader = kwargs.pop('postheader', '\\hline')
     separator = kwargs.pop('separator', ' | ')
@@ -635,14 +637,18 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
             if label is not None:
                 file.write('\\label{' + label + '}\n')
 
+        if center:
+            file.write('\\begin{center}\n')
         file.write('\\begin{tabular}{' + table_spec + '}\n')
 
         # Write actual data
-        write_to_CSV(file, delim=' & ', columnar=columnar, line_end='//', postheader=postheader,
-                     append=True, close=False, **kwargs)
+        write_to_CSV(file, delim=' & ', columnar=columnar, line_end=r'\\', postheader=postheader,
+                append=True, close=False, **kwargs)
 
         # End environments
         file.write('\\end{tabular}\n')
+        if center:
+            file.write('\\end{center}\n')
 
         if as_table:
             file.write('\\end{table}\n')
