@@ -126,19 +126,20 @@ def ls_regression(x, y, funcs, err_y=None, p0=None):
     :param y: The sequence of y values for the dataset.
     :param funcs: The single function or sequence of functions to determine parameters for. If a sequence of functions
         is input, the fit will be to a linear combination, with the coefficients the parameters. Otherwise, the function
-        is assumed to be of the form f(x, *params).
+        is assumed to be of the form f(x, *params), where *params may either be varargs or expanded into the individual
+        parameters.
     :param err_y: The errors in the y values.
-    :param p0: An estimation of the parameters. Must be input if funcs is not a sequence.
+    :param p0: An estimation of the parameters. If None (the default), the values will either be computed (if funcs is
+        a sequence) or set to 1 by scipy. In the latter case, the arguments to the function should be in expanded form.
     """
 
     if isinstance(funcs, Sequence):
         if p0 is None:
             p0 = _general_fit(x, y, funcs, err_y)
         funcs = comb_gen(*funcs)
-    elif p0 is None:
-        raise ValueError("p0 must be specified if funcs is not a sequence.")
 
     res = curve_fit(funcs, x, y, p0, err_y)
+    # noinspection PyTypeChecker
     return Fit(funcs, res[0], np.sqrt(np.diag(res[1])))
 
 @_validate
@@ -149,7 +150,9 @@ def od_regression(x, y, funcs, err_x, err_y, p0=None):
     :param x: The sequence of x values for the dataset.
     :param y: The sequence of y values for the dataset.
     :param funcs: The single function or sequence of functions to determine parameters for. If a sequence of functions
-        is input, the fit will be to a linear combination, with the coefficients the parameters.
+        is input, the fit will be to a linear combination, with the coefficients the parameters. Otherwise, the function
+        is assumed to be of the form f(x, *params), where *params may either be varargs or expanded into the individual
+        parameters.
     :param err_x: The errors in the x values.
     :param err_y: The errors in the y values.
     :param p0: An estimation of the parameters. Must be input if funcs is not a sequence.

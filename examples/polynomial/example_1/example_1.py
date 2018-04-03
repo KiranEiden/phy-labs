@@ -41,4 +41,4 @@ draw_plot(x, fit=fit_3, flegend='Cubic', color='orangered')
 draw_plot(x, fit=fit_5, flegend='5th Order', color='darkorchid')
 
 # Save the figure in two separate formats and display the plot
-save_figure('plot', 'eps', 'png', display=True)
+save_figure('plot', 'eps', 'png', mode='show')
