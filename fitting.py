@@ -230,7 +230,7 @@ def lorentzian_fit(x, y, err_x=None, err_y=None):
 
     x_1 = find_x(q_1)
     x_3 = find_x(q_3)
-    gamma = (x_3 - x_1) / 2
+    gamma = (x_3 - x_1) / 2 if x_1 != x_3 else get_x(q_3) - get_x(q_1)
 
     # Amplitude estimate
     A = y_max * np.pi * ((x[x_s[max_i]] - x_0)**2 + gamma**2) / gamma
@@ -427,6 +427,22 @@ def swap_args(func):
 
 # Analysis tools
 
+def weighted_mean(data, sd):
+    """
+    Computes an error weighted mean of the input data.
+
+    :param data: Sequence of values to average.
+    :param sd: Uncertainties for the dataset.
+    """
+
+    # Inverse squares
+    inv_sq = [1 / sigma**2 for sigma in sd]
+    sum_sq = sum(inv_sq)
+    mean = sum(x * w for x, w in zip(data, inv_sq)) / sum_sq
+    sd_mean = np.sqrt(1 / sum_sq)
+
+    return mean, sd_mean
+
 def chi_squared(x, y, err_y, fit):
     """ Returns the chi-squared value for the input fit and dataset. """
 
@@ -458,7 +474,11 @@ def write_to_CSV(file='data.csv', delim=',', columnar=True, **kwargs):
     :param columnar: Whether to output the data in columns (True) or in rows (False).
 
     Keywords, avoid using as column headers:
-    :keyword fmt: A format to apply to data before writing.
+    :keyword fmt: A format to apply to data before writing. May be supplied as a single string or a dictionary - the
+        format is applied to all data in the former case, or applied by header in the latter. Give a sequence of the
+        same length as the data sequence in place of the string to apply by element.
+    :keyword def_fmt: A default format that may be supplied when formatting using dictionaries. Will apply to any header
+        not in fmt.
     :keyword line_end: A string to write to the end of the line before the newline character.
     :keyword preheader: Characters to be written to the line prior the header in columnar formats. Will be delimited
         if passed in as a sequence. A newline character is automatically appended to strings.
@@ -472,7 +492,7 @@ def write_to_CSV(file='data.csv', delim=',', columnar=True, **kwargs):
     """
 
     # Some kwarg handling
-    def_fmt = '{}'
+    def_fmt = kwargs.pop('def_fmt', '{}')
     fmt = kwargs.pop('fmt', def_fmt)
     line_end = kwargs.pop('line_end', '')
     pre_header = kwargs.pop('preheader', None)
@@ -481,10 +501,14 @@ def write_to_CSV(file='data.csv', delim=',', columnar=True, **kwargs):
     file_mode = 'a' if kwargs.pop('append', False) else 'w'
 
     # Function for applying format
-    def convert(key, out):
-        if isinstance(fmt, dict):
-            return fmt.setdefault(key, def_fmt).format(out)
-        return fmt.format(out)
+    def convert(key, i, out):
+
+        fmt_ki = fmt
+        if isinstance(fmt_ki, dict):
+            fmt_ki = fmt_ki.get(key, def_fmt)
+        if not isinstance(fmt_ki, str) and isinstance(fmt_ki, Sequence):
+            fmt_ki = fmt_ki[i]
+        return fmt_ki.format(out)
 
     # Open new file if path was given
     if isinstance(file, str):
@@ -512,12 +536,11 @@ def write_to_CSV(file='data.csv', delim=',', columnar=True, **kwargs):
         handle_padding(post_header)
 
         for i in range(0, n_rows):
-            row = map(lambda item: convert(item[0], item[1][i]) if len(item[1]) > i else '', kwargs.items())
+            row = map(lambda item: convert(item[0], i, item[1][i]) if len(item[1]) > i else '', kwargs.items())
             write_row(row)
     else:
         for k, v in kwargs.items():
-            write_row([k] + list(map(lambda out: convert(k, out), v)))
-
+            write_row([k] + [convert(k, i, v[i]) for i in range(len(v))])
     if close:
         file.close()
     return file
@@ -602,6 +625,7 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
 
     Keyword Arguments. Anything not listed will be interpreted as data (keyed by the header).
     :keyword append: Whether to append to the file (True) or write over it (False). False by default.
+    :keyword fmt: Formatting to appy to the data. See write_to_CSV.
     :keyword center: Whether to center the table. True by default.
     :keyword postheader: Characters to write after the header row in columnar formats. '\hline' by default.
     :keyword separator: Will replace ' | ' in a cross-column expansion of a single alignment character.
@@ -612,6 +636,8 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
     """
 
     # Retrieve information from kwargs. Add some exceptions for improper input?
+    def_fmt = kwargs.pop('def_fmt', None)
+    fmt = kwargs.pop('fmt', None)
     append = kwargs.pop('append', False)
     center = kwargs.pop('center', True)
     file_mode = 'a' if append else 'w'
@@ -639,12 +665,17 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
                 file.write('\\caption{' + caption + '}\n')
             if label is not None:
                 file.write('\\label{' + label + '}\n')
-
         if center:
             file.write('\\begin{center}\n')
+
         file.write('\\begin{tabular}{' + table_spec + '}\n')
 
         # Write actual data
+        if fmt is not None:
+            kwargs['fmt'] = fmt
+        if def_fmt is not None:
+            kwargs['def_fmt'] = def_fmt
+
         write_to_CSV(file, delim=' & ', columnar=columnar, line_end=r'\\', postheader=postheader,
                 append=True, close=False, **kwargs)
 
@@ -652,7 +683,6 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
         file.write('\\end{tabular}\n')
         if center:
             file.write('\\end{center}\n')
-
         if as_table:
             file.write('\\end{table}\n')
 
