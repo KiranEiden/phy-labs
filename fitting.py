@@ -581,7 +581,7 @@ def read_from_CSV(file, delim=',', columnar=True, **kwargs):
         return b if a == b else a
 
     line_end = kwargs.setdefault('line_end', '')
-    process_line = lambda l: l.strip().replace(line_end + '\n', '').split(delim)
+    process_line = lambda l: l.replace(line_end + '\n', '').strip().split(delim)
 
     # Open file if path was given
     if isinstance(file, str):
