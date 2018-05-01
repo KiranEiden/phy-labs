@@ -625,7 +625,8 @@ def write_to_Tex(file='data.tex', table_spec='c', columnar=True, **kwargs):
 
     Keyword Arguments. Anything not listed will be interpreted as data (keyed by the header).
     :keyword append: Whether to append to the file (True) or write over it (False). False by default.
-    :keyword fmt: Formatting to appy to the data. See write_to_CSV.
+    :keyword fmt: Formatting to apply to the data. See write_to_CSV.
+    :keyword def_fmt: Default formatting to be applied to items absent from format dictionary.
     :keyword center: Whether to center the table. True by default.
     :keyword postheader: Characters to write after the header row in columnar formats. '\hline' by default.
     :keyword separator: Will replace ' | ' in a cross-column expansion of a single alignment character.
