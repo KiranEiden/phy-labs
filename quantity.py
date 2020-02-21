@@ -129,21 +129,28 @@ class Quantity:
         return Sigma(self, sigma_data, sigma_expr, sigma_deps)
 
     def lock_sym(self):
+        """ Lock symbol to prevent name changes. """
 
         self._locked = True
 
     def set_sym(self, sym):
+        """
+        Set symbol for this Quantity. The Quantity be unlocked and the symbol
+        must be unregistered.
+        """
 
         if sym is None: return
         assert not self._locked, "Can only rename symbols that have not been used in any operations"
 
+        old_sym = self._sym
         if not isinstance(sym, sympy.Symbol):
             self._sym = sympy.Symbol(sym)
         else:
             self._sym = sym
 
-        if self.sym in Quantity._named:
+        if old_sym in Quantity._named:
             del Quantity._named[self._sym]
+        assert self._sym not in Quantity._named, f"{self._sym} is already registered to a Quantity"
         Quantity._named[self._sym] = self
 
     ############################
@@ -229,14 +236,14 @@ def make_deps(args):
         dep.lock_sym()
     return deps
 
-def createf(fname):
+def createf(numname, symname=None):
     """
-    Create a function of name *fname* returning a Quantity. Operates on both numeric
-    and symbolic components.
+    Create a function returning a Quantity (takes numpy and sympy names). Operates on both numeric
+    and symbolic components. Can opt to only supply one name if they are the same.
     """
-
-    numf = getattr(numpy, fname)
-    symf = getattr(sympy, fname)
+    if symname is None: symname = numname
+    numf = getattr(numpy, numname)
+    symf = getattr(sympy, symname)
 
     def f(*args):
 
@@ -268,11 +275,15 @@ cbrt = createf('cbrt')
 sin = createf('sin')
 cos = createf('cos')
 tan = createf('tan')
+asin = createf('arcsin', 'asin')
+acos = createf('arccos', 'acos')
+atan = createf('arctan', 'atan')
 exp = createf('exp')
 log = createf('log')
 sinh = createf('sinh')
 cosh = createf('cosh')
 tanh = createf('tanh')
 floor = createf('floor')
+ceil = createf('ceil', 'ceiling')
 gcd = createf('gcd')
 lcm = createf('lcm')
