@@ -1,8 +1,27 @@
 import numpy
 import sympy
+import re
+
+from functools import reduce
+from collections import namedtuple
+from enum import Enum
 
 from sympy.utilities.lambdify import lambdify
-from weakref import WeakValueDictionary
+import sympy.parsing.sympy_parser as symparse
+
+# TODO: Define Quantity.__format__
+# TODO: Add unit support
+# TODO: Add definitions of constants
+
+class Ops(Enum):
+    """ Operation lambdas """
+
+    ADD = lambda a, b: a + b
+    SUB = lambda a, b: a - b
+    MUL = lambda a, b: a * b
+    DIV = lambda a, b: a / b
+    POW = lambda a, b: a ** b
+    NEG = lambda a: -a
 
 ##############################################################
 #                        Quantities                          #
@@ -10,17 +29,6 @@ from weakref import WeakValueDictionary
 
 class Quantity:
     """ Hybrid numeric and symbolic quantities. """
-
-    # Weak registry of named quantities
-    _named = WeakValueDictionary()
-
-    # Operation lambdas
-    _add = lambda a, b: a + b
-    _sub = lambda a, b: a - b
-    _mul = lambda a, b: a * b
-    _div = lambda a, b: a / b
-    _pow = lambda a, b: a**b
-    _neg = lambda a: -a
 
     def __init__(self, data, sigma=None, sym=None, expr=None, deps=None):
 
@@ -49,9 +57,19 @@ class Quantity:
 
         return getattr(self._data, name)
 
-    def __str__(self):
+    def __repr__(self):
 
-        return str(self._data)
+        if self.sym is None:
+            symstr = ""
+        else:
+            symstr = f"{self.sym} = "
+
+        if self.sigma is None:
+            sigstr = ""
+        else:
+            sigstr = f" ± {self.sigma.data}"
+
+        return f"{symstr}{self.data}{sigstr}"
 
     #############################
     #   Operation Definitions   #
@@ -63,47 +81,47 @@ class Quantity:
 
     def __add__(self, other):
 
-        return execute_op(Quantity._add, self, other)
+        return execute_op(Ops.ADD, self, other)
 
     def __radd__(self, other):
 
-        return execute_op(Quantity._add, other, self)
+        return execute_op(Ops.ADD, other, self)
 
     def __sub__(self, other):
 
-        return execute_op(Quantity._sub, self, other)
+        return execute_op(Ops.SUB, self, other)
 
     def __rsub__(self, other):
 
-        return execute_op(Quantity._sub, other, self)
+        return execute_op(Ops.SUB, other, self)
 
     def __mul__(self, other):
 
-        return execute_op(Quantity._mul, self, other)
+        return execute_op(Ops.MUL, self, other)
 
     def __rmul__(self, other):
 
-        return execute_op(Quantity._mul, other, self)
+        return execute_op(Ops.MUL, other, self)
 
     def __truediv__(self, other):
 
-        return execute_op(Quantity._div, self, other)
+        return execute_op(Ops.DIV, self, other)
 
     def __rtruediv__(self, other):
 
-        return execute_op(Quantity._div, other, self)
+        return execute_op(Ops.DIV, other, self)
 
     def __pow__(self, other):
 
-        return execute_op(Quantity._pow, self, other)
+        return execute_op(Ops.POW, self, other)
 
     def __rpow__(self, other):
 
-        return execute_op(Quantity._pow, other, self)
+        return execute_op(Ops.POW, other, self)
 
     def __neg__(self):
 
-        return execute_op(Quantity._neg, self)
+        return execute_op(Ops.NEG, self)
 
     ###########################
     #   Misc. Functionality   #
@@ -111,9 +129,9 @@ class Quantity:
 
     def _propagate_uncertainty(self):
 
-        dep_symbols = tuple(self.expr.free_symbols)
-        named_deps = tuple(Quantity._named[sym] for sym in dep_symbols)
-        uncertain_deps = tuple(dep for dep in named_deps if dep.sigma is not None)
+        deps = tuple(self.deps)
+        dep_symbols = tuple(dep.sym for dep in deps)
+        uncertain_deps = tuple(dep for dep in deps if dep.sigma is not None)
         derivs = (sympy.diff(self.expr, dep.sym) for dep in uncertain_deps)
         terms = ((deriv * dep.sigma.sym)**2 for deriv, dep in zip(derivs, uncertain_deps))
         sigma_expr = sympy.sqrt(sum(terms))
@@ -122,7 +140,7 @@ class Quantity:
         dep_sigma_syms = tuple(sigma.sym for sigma in dep_sigmas)
         sigma_func = lambdify(dep_symbols + dep_sigma_syms, sigma_expr, 'numpy')
 
-        sigma_deps = named_deps + dep_sigmas
+        sigma_deps = deps + dep_sigmas
         sigma_deps_data = tuple(dep.data for dep in sigma_deps)
         sigma_data = sigma_func(*sigma_deps_data)
 
@@ -134,24 +152,15 @@ class Quantity:
         self._locked = True
 
     def set_sym(self, sym):
-        """
-        Set symbol for this Quantity. The Quantity be unlocked and the symbol
-        must be unregistered.
-        """
+        """ Set symbol for this Quantity. The Quantity must be unlocked. """
 
         if sym is None: return
         assert not self._locked, "Can only rename symbols that have not been used in any operations"
 
-        old_sym = self._sym
         if not isinstance(sym, sympy.Symbol):
             self._sym = sympy.Symbol(sym)
         else:
             self._sym = sym
-
-        if old_sym in Quantity._named:
-            del Quantity._named[self._sym]
-        assert self._sym not in Quantity._named, f"{self._sym} is already registered to a Quantity"
-        Quantity._named[self._sym] = self
 
     ############################
     #   Read-only Properties   #
@@ -203,6 +212,275 @@ class Sigma(Quantity):
 
         return self._parent
 
+#########################################################
+#                        Units                          #
+#########################################################
+
+class Dimension:
+
+    # Dimension registry
+    _dreg = dict()
+
+    def __new__(cls, desc):
+
+        if desc in Dimension._dreg:
+            return Dimension._dreg[desc]
+        else:
+            inst = super().__new__(cls)
+            Dimension._dreg[desc] = inst
+            return inst
+
+    def __init__(self, desc):
+
+        self._desc = desc
+        self._base = None
+
+    def __repr__(self):
+
+        return f"Dimension('{self._desc}')"
+
+    def __hash__(self):
+
+        return hash(self._desc)
+
+    def __eq__(self, other):
+
+        return repr(self) == repr(other)
+
+    @classmethod
+    def get(cls, desc):
+
+        return cls._dreg[desc]
+
+    @classmethod
+    def exists(cls, desc):
+
+        return desc in cls._dreg
+
+    def set_base_unit(self, unit):
+
+        assert self._base is None, f"Base unit already set for {self}!"
+        self._base = unit
+
+    @property
+    def description(self):
+
+        return self._desc
+
+    @property
+    def base_unit(self):
+
+        return self._base
+
+UnitConversion = namedtuple("UnitConversion", "scale offset")
+
+class Unit:
+
+    # Unit registry
+    _ureg = dict()
+
+    def __new__(cls, full_name, defn, aliases=()):
+
+        if not full_name:
+            raise ValueError("Unit must have a name!")
+        names = (full_name,) + aliases
+        registered = [name in Unit._ureg for name in names]
+
+        if any(registered):
+
+            existing_names = list(filter(lambda name: name in Unit._ureg, names))
+            existing_units = [Unit._ureg[name] for name in existing_names]
+            for i in range(len(existing_units)-1):
+                if existing_units[i] != existing_units[i+1]:
+                    raise ValueError(f"{existing_names} exist with conflicting definitions.")
+
+            if not registered[0]:
+                raise ValueError("Unit alias registered, but full name is not. Try using " +
+                                 "Unit.rename to reset the full name.")
+
+            if all(registered):
+                return Unit._ureg[full_name]
+
+            unit = Unit._ureg[full_name]
+            for name in names:
+                Unit._ureg[name] = unit
+            return unit
+
+        else:
+
+            inst = super().__new__(cls)
+            for name in names:
+                Unit._ureg[name] = inst
+            return inst
+
+    def __init__(self, full_name, defn, aliases=()):
+
+        self._full_name = full_name
+        self._aliases = list(aliases)
+
+        self._from_base = None
+        m = re.fullmatch('base_(?P<dim>\w+)', defn)
+
+        if m:
+            self._dim = Dimension.get(m.groupdict()['dim'])
+            self._dim.set_base_unit(self)
+            self._from_base = UnitConversion(scale=1.0, offset=0.0)
+        else:
+            self._dim, self._from_base = self.parse_defn(defn)
+
+    def parse_defn(self, defn):
+        """
+        Parse definition string, returning dimensionality and UnitConversion in terms of base unit
+        for that dimensionality.
+        """
+
+        transformations = symparse.standard_transformations + \
+                          (symparse.convert_xor, symparse.implicit_multiplication)
+        expr = symparse.parse_expr(defn, transformations=transformations)
+        assert len(expr.free_symbols) == 1, "Must define unit in terms of only one other unit"
+
+        expr = sympy.Poly(expr, domain="RR")
+        conv = UnitConversion(*expr.all_coeffs())
+
+        unitsym, = expr.free_symbols
+        unitsym = str(unitsym)
+        unit = Unit.get(unitsym)
+
+        # a*some_unit + b => a*(c*base_unit + d) + b
+        a, b = conv
+        c, d = unit.from_base
+        scale = a*c
+        offset = a*d + b
+
+        return unit.dimensionality, UnitConversion(scale, offset)
+
+    def __repr__(self):
+
+        return f"Unit('{self._full_name}')"
+
+    def __hash__(self):
+
+        return hash(self._full_name)
+
+    def __eq__(self, other):
+
+        return self.full_name == other.full_name
+
+    @classmethod
+    def get(cls, name):
+
+        return cls._ureg[name]
+
+    @classmethod
+    def exists(cls, name):
+
+        return name in cls._ureg
+
+    @classmethod
+    def rename(cls, oldname, newname):
+
+        unit = cls.get(oldname)
+        unit._full_name = newname
+
+        for name in unit.names:
+            cls._ureg[name] = unit
+
+    @classmethod
+    def remove(cls, name):
+
+        unit = cls.get(name)
+
+        for name in unit.names:
+            del cls._ureg[name]
+
+    @classmethod
+    def add_alias(cls, name, alias):
+
+        unit = cls.get(name)
+
+        if alias not in unit.names:
+            unit.aliases.append(alias)
+            cls._ureg[alias] = unit
+
+    @classmethod
+    def remove_alias(cls, alias):
+
+        unit = cls.get(alias)
+
+        if unit.full_name != alias:
+            unit.aliases.remove(alias)
+            del cls._ureg[alias]
+
+    @property
+    def full_name(self):
+
+        return self._full_name
+
+    @property
+    def aliases(self):
+
+        return self._aliases
+
+    @property
+    def names(self):
+
+        return [self._full_name] + self._aliases
+
+    @property
+    def dimensionality(self):
+
+        return self._dim
+
+    @property
+    def from_base(self):
+
+        return self._from_base
+
+class UnitContainer:
+
+    def __init__(self, unitstr):
+
+        self.units = dict()
+
+        for unit, exponent in self.extract_units(unitstr):
+            unit = Unit.get(unit)
+            self.units[unit] = exponent
+
+    def extract_units(self, unitstr):
+        """ Extract units and exponents from a unit definition string. """
+
+        transformations = symparse.standard_transformations + (symparse.convert_xor,)
+        expr = symparse.parse_expr(unitstr, transformations=transformations)
+
+        yield from self._traverse_expr(expr)
+
+    def _traverse_expr(self, expr):
+
+        if isinstance(expr, sympy.Pow):
+
+            a, b = expr.args
+            if not (isinstance(a, sympy.Symbol) and isinstance(b, sympy.Number)):
+                raise ValueError(f"{a}**{b} not allowed in unit expression, must be symbol to some power.")
+            yield str(a), float(b)
+
+        elif isinstance(expr, sympy.Symbol):
+
+            yield str(expr), 1.0
+
+        elif isinstance(expr, sympy.Mul):
+
+            for arg in expr.args:
+                yield from self._traverse_expr(arg)
+
+        elif isinstance(expr, sympy.Number):
+
+            raise ValueError(f"Non-exponent number {expr} in unit expression not permitted.")
+
+        else:
+
+            raise ValueError(f"Invalid operation {expr.func.__name__} in unit expression.")
+
+
 ##############################################################
 #                     Transformations                        #
 ##############################################################
@@ -227,11 +505,16 @@ def symfilter(args):
         else:
             yield arg
 
+def set_union(a, b):
+
+    return a | b
+
 def make_deps(args):
     """ Make dependency set, and lock their symbolic representations. """
 
     quantities = filter(isquantity, args)
-    deps = set(quantities)
+    deps = (q.deps if q.sym is None else {q} for q in quantities)
+    deps = reduce(set_union, deps)
     for dep in deps:
         dep.lock_sym()
     return deps
@@ -268,6 +551,7 @@ def execute_op(op, *args):
 ############################
 #   Function Definitions   #
 ############################
+
 sign = createf('sign')
 power = createf('power')
 sqrt = createf('sqrt')
@@ -287,3 +571,7 @@ floor = createf('floor')
 ceil = createf('ceil', 'ceiling')
 gcd = createf('gcd')
 lcm = createf('lcm')
+
+Dimension("length")
+Unit("meter", "base_length", ("m",))
+Unit("centimeter", "9/5 * (32 - m)", ("cm",))
