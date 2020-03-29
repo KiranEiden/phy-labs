@@ -686,9 +686,15 @@ class CompositionBase(dict):
 
     KeyType = type(None)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, other_dict=None, **kwargs):
 
-        super().__init__(*args, **kwargs)
+        super().__init__()
+
+        if other_dict is None:
+            other_dict = dict()
+        other_dict.update(kwargs)
+        for k, v in other_dict.items():
+            self[k] = v
 
     def __getitem__(self, key):
 
@@ -703,7 +709,8 @@ class CompositionBase(dict):
             key = self.KeyType.get(key)
         value = float(value)
 
-        super().__setitem__(key, value)
+        if value != 0.0:
+            super().__setitem__(key, value)
 
     @staticmethod
     def _stringify(keys, values):
@@ -765,14 +772,6 @@ class CompositionBase(dict):
             new_comp[key] = self.get(key, 0.0) - other.get(key, 0.0)
 
         return self.__class__(new_comp)
-
-    def __bool__(self):
-
-        keys = list(self.keys())
-        for key in keys:
-            if self[key] == 0.0:
-                del self[key]
-        return len(self) > 0
 
     def sqrt(self):
 
