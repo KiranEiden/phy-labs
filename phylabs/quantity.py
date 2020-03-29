@@ -82,9 +82,9 @@ class UnitOps(Enum):
     def handle_pow(args, units, numf):
         """ Apply function to units. """
 
-        funargs = (units[i] if units[i] else float(args[i])
-                   for i in range(len(args)))
-        return args, numf(*funargs)
+        base, exponent = args
+        exponent = float(exponent)
+        return args, numf(units[0], exponent)
 
     # Require dimensionless arguments
     DIM_IN = handle_dim_in
