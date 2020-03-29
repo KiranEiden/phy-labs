@@ -134,6 +134,9 @@ class Quantity:
         self.set_sym(sym)
         self._expr = expr
 
+        if isinstance(data, float) and self._data % 1 == 0.0:
+            self._data = int(self._data)
+
         if sym is None and expr is None:
             self.set_sym(f"quantity_{Quantity._counter()}")
 
@@ -242,9 +245,9 @@ class Quantity:
         nonzero = (self.data != 0.0)
 
         if isinstance(nonzero, bool):
-            return self.data
+            return nonzero
         else:
-            return self.data.all()
+            return bool(nonzero.all())
 
     def __float__(self):
 
