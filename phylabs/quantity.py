@@ -10,6 +10,7 @@ from threading import Lock
 from sympy.utilities.lambdify import lambdify
 import sympy.parsing.sympy_parser as symparse
 
+# TODO: SymPy based expression parser fails on 'N*m'
 # TODO: Define Quantity.__format__
 # TODO: Better Quantity string representations
 # TODO: Better UnitContainer string representations
@@ -575,14 +576,15 @@ class Unit:
         else:
             mfac, offset = expr, 0.0
 
+        scale = 1.0
+
         if isinstance(mfac, sympy.Mul):
             mfac = mfac.evalf()
-            scale = mfac.args[0]
-        elif isinstance(mfac, sympy.Symbol):
-            scale = 1.0
+            if isinstance(mfac.args[0], sympy.Number):
+                scale = mfac.args[0]
         elif isinstance(mfac, sympy.Number):
             scale = mfac.evalf()
-        else:
+        elif not (isinstance(mfac, sympy.Pow) or isinstance(mfac, sympy.Symbol)):
             raise ValueError(f"Invalid unit definition: {defn}")
         units = str((mfac / scale).nsimplify(tolerance=1e-5))
         if units == "1": units = None
